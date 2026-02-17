@@ -7,5 +7,5 @@ import org.springframework.boot.runApplication
 class MysawitPlantationServiceApplication
 
 fun main(args: Array<String>) {
-	runApplication<MysawitPlantationServiceApplication>(*args)
+    runApplication<MysawitPlantationServiceApplication>(*args)
 }
