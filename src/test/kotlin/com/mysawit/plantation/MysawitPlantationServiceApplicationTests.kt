@@ -11,4 +11,15 @@ class MysawitPlantationServiceApplicationTests {
     @Test
     fun contextLoads() {
     }
+
+    @Test
+    fun mainRunsWithTestProfile() {
+        main(
+            arrayOf(
+                "--spring.profiles.active=test",
+                "--spring.main.web-application-type=none",
+                "--app.test.close-context=true"
+            )
+        )
+    }
 }
