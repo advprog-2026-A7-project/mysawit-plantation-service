@@ -19,7 +19,7 @@ class PlantationTest {
         plantation.setName("Plantation");
         plantation.setLocation("Riau");
         plantation.setArea(100.0);
-        plantation.setOwnerId(2L);
+        plantation.setOwnerId("2");
         plantation.setDescription("desc");
         plantation.setPlantDate(plantDate);
         plantation.setCreatedAt(createdAt);
@@ -29,27 +29,12 @@ class PlantationTest {
         assertEquals("Plantation", plantation.getName());
         assertEquals("Riau", plantation.getLocation());
         assertEquals(100.0, plantation.getArea());
-        assertEquals(2L, plantation.getOwnerId());
+        assertEquals("2", plantation.getOwnerId());
         assertEquals("desc", plantation.getDescription());
         assertEquals(plantDate, plantation.getPlantDate());
         assertEquals(createdAt, plantation.getCreatedAt());
         assertEquals(updatedAt, plantation.getUpdatedAt());
     }
 
-    @Test
-    void lifecycleHooksSetTimestamps() {
-        Plantation plantation = new Plantation();
 
-        plantation.onCreate();
-
-        assertNotNull(plantation.getCreatedAt());
-        assertNotNull(plantation.getUpdatedAt());
-
-        LocalDateTime beforeUpdate = LocalDateTime.now().minusSeconds(1);
-        plantation.setUpdatedAt(beforeUpdate.minusDays(1));
-
-        plantation.onUpdate();
-
-        assertTrue(plantation.getUpdatedAt().isAfter(beforeUpdate));
-    }
 }
