@@ -1,64 +1,37 @@
-package com.mysawit.plantation.model;
+package com.mysawit.plantation.dto;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EntityListeners;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
+import com.mysawit.plantation.model.Plantation;
 import java.time.LocalDateTime;
-import org.springframework.data.annotation.CreatedDate;
-import org.springframework.data.annotation.LastModifiedDate;
-import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
-@Entity
-@Table(name = "plantations")
-@EntityListeners(AuditingEntityListener.class)
-public class Plantation {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+public class PlantationResponse {
+    
     private Long id;
-
-    @Column(nullable = false, updatable = false, unique = true)
     private String code;
-
-    @Column(nullable = false)
     private String name;
-
-    @Column(nullable = false)
     private String location;
-
-    @Column(nullable = false)
     private Double area;
-
-    @Column(length = 1000)
     private String description;
-
-    @Column(name = "owner_id")
     private String ownerId;
-
-    @Column(name = "plant_date")
     private LocalDateTime plantDate;
-
-    @CreatedDate
-    @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
-
-    @LastModifiedDate
-    @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
-    // Constructors
-    public Plantation() {
+    // Default constructor
+    public PlantationResponse() {
     }
 
-    public Plantation(String code, String name, String location, Double area) {
-        this.code = code;
-        this.name = name;
-        this.location = location;
-        this.area = area;
+    // Constructor with entity mapping
+    public PlantationResponse(Plantation plantation) {
+        this.id = plantation.getId();
+        this.code = plantation.getCode();
+        this.name = plantation.getName();
+        this.location = plantation.getLocation();
+        this.area = plantation.getArea();
+        this.description = plantation.getDescription();
+        this.ownerId = plantation.getOwnerId();
+        this.plantDate = plantation.getPlantDate();
+        this.createdAt = plantation.getCreatedAt();
+        this.updatedAt = plantation.getUpdatedAt();
     }
 
     // Getters and Setters
