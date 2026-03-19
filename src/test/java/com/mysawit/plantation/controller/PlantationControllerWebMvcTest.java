@@ -27,8 +27,19 @@ import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
+import org.springframework.context.annotation.Import;
+import org.springframework.security.test.context.support.WithMockUser;
+import com.mysawit.plantation.security.JwtAuthenticationFilter;
+import com.mysawit.plantation.security.JwtUtil;
+import com.mysawit.plantation.security.SecurityConfig;
+
 @WebMvcTest(PlantationController.class)
+@Import({ SecurityConfig.class, JwtAuthenticationFilter.class })
+@WithMockUser(roles = "ADMIN")
 class PlantationControllerWebMvcTest {
+
+    @MockBean
+    private JwtUtil jwtUtil;
 
     @Autowired
     private MockMvc mockMvc;
@@ -131,8 +142,8 @@ class PlantationControllerWebMvcTest {
         validCreateRequest.setName(""); // Blank name violates @NotBlank
 
         mockMvc.perform(post("/api/plantations")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(validCreateRequest)))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(validCreateRequest)))
                 .andExpect(status().isBadRequest());
     }
 

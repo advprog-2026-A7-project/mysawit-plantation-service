@@ -34,8 +34,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class PlantationIntegrationTest {
 
     private static final String POSTGRES_ENABLED_PROPERTY = "integration.postgres.enabled";
-    private static final PostgreSQLContainer<?> postgres =
-            new PostgreSQLContainer<>("postgres:15-alpine");
+    private static final PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:15-alpine");
 
     @LocalServerPort
     private int port;
@@ -47,6 +46,18 @@ class PlantationIntegrationTest {
     private PlantationRepository plantationRepository;
 
     private String baseUrl;
+
+    @org.springframework.beans.factory.annotation.Value("${jwt.secret:defaultSuperSecretKeyThatIsAtLeast32BytesLong}")
+    private String secret;
+
+    private String generateToken() {
+        return io.jsonwebtoken.Jwts.builder()
+                .subject("test-admin")
+                .claim("role", "ADMIN")
+                .signWith(io.jsonwebtoken.security.Keys
+                        .hmacShaKeyFor(secret.getBytes(java.nio.charset.StandardCharsets.UTF_8)))
+                .compact();
+    }
 
     @DynamicPropertySource
     static void configureProperties(DynamicPropertyRegistry registry) {
@@ -70,6 +81,12 @@ class PlantationIntegrationTest {
     void setUp() {
         baseUrl = "http://localhost:" + port + "/api/plantations";
         plantationRepository.deleteAll(); // Clean up before each test
+
+        restTemplate.getRestTemplate().getInterceptors().clear();
+        restTemplate.getRestTemplate().getInterceptors().add((request, body, execution) -> {
+            request.getHeaders().add("Authorization", "Bearer " + generateToken());
+            return execution.execute(request, body);
+        });
     }
 
     @AfterEach
@@ -206,8 +223,8 @@ class PlantationIntegrationTest {
                 baseUrl + "/owner/Owner-A",
                 HttpMethod.GET,
                 null,
-                new ParameterizedTypeReference<List<PlantationResponse>>() {}
-        );
+                new ParameterizedTypeReference<List<PlantationResponse>>() {
+                });
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody()).hasSize(2);
@@ -223,8 +240,8 @@ class PlantationIntegrationTest {
                 baseUrl,
                 HttpMethod.GET,
                 null,
-                new ParameterizedTypeReference<List<PlantationResponse>>() {}
-        );
+                new ParameterizedTypeReference<List<PlantationResponse>>() {
+                });
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody()).hasSize(2);
