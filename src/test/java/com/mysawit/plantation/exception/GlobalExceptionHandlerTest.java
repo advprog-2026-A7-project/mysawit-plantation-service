@@ -36,4 +36,14 @@ class GlobalExceptionHandlerTest {
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.error").value("Plantation not found with id: 42"));
     }
+
+    @Test
+    void invalidGeometryExceptionIsMappedTo400() throws Exception {
+        when(plantationService.getPlantationById(43L))
+                .thenThrow(new InvalidGeometryException("Geometry is invalid"));
+
+        mockMvc.perform(get("/api/plantations/43"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("Geometry is invalid"));
+    }
 }

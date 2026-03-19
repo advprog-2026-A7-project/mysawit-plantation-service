@@ -153,6 +153,50 @@ class PlantationServiceTest {
     }
 
     @Test
+    void createPlantationDoesNotRetryWhenViolationMessageIsNull() {
+        CreatePlantationRequest request = sampleCreateRequest();
+        DataIntegrityViolationException violation = new DataIntegrityViolationException(
+                null,
+                new RuntimeException()
+        );
+        when(plantationRepository.save(any(Plantation.class))).thenThrow(violation);
+
+        assertThrows(DataIntegrityViolationException.class, () -> plantationService.createPlantation(request));
+
+        verify(plantationRepository, times(1)).save(any(Plantation.class));
+    }
+
+    @Test
+    void createPlantationRetriesWhenDuplicateMessageMentionsCode() {
+        CreatePlantationRequest request = sampleCreateRequest();
+        DataIntegrityViolationException collision = new DataIntegrityViolationException("duplicate code value");
+
+        when(plantationRepository.save(any(Plantation.class)))
+                .thenThrow(collision)
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        Plantation result = plantationService.createPlantation(request);
+
+        assertNotNull(result.getCode());
+        verify(plantationRepository, times(2)).save(any(Plantation.class));
+    }
+
+    @Test
+    void createPlantationRetriesWhenConstraintMessageMentionsCode() {
+        CreatePlantationRequest request = sampleCreateRequest();
+        DataIntegrityViolationException collision = new DataIntegrityViolationException("code constraint violated");
+
+        when(plantationRepository.save(any(Plantation.class)))
+                .thenThrow(collision)
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        Plantation result = plantationService.createPlantation(request);
+
+        assertNotNull(result.getCode());
+        verify(plantationRepository, times(2)).save(any(Plantation.class));
+    }
+
+    @Test
     void createPlantationFromLegacyRequestMapsAndSaves() {
         PlantationRequest request = sampleLegacyRequest();
         when(plantationRepository.save(any(Plantation.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -274,6 +318,54 @@ class PlantationServiceTest {
                 () -> plantationService.createPlantation(request)
         );
         assertTrue(exception.getMessage().contains("overlaps with existing plantation"));
+    }
+
+    @Test
+    void createPlantationIgnoresIncompleteAndInvalidExistingGeometries() {
+        CreatePlantationRequest request = sampleCreateRequest();
+
+        Plantation incomplete = new Plantation();
+        incomplete.setId(10L);
+        incomplete.setCoordinates(List.of(
+                new Coordinate(0.0, 0.0),
+                new Coordinate(0.0, 1.0),
+                new Coordinate(1.0, 1.0)
+        ));
+
+        Plantation invalidGeometry = new Plantation();
+        invalidGeometry.setId(11L);
+        invalidGeometry.setCoordinates(List.of(
+                new Coordinate(10.0, 10.0),
+                new Coordinate(11.0, 11.0),
+                new Coordinate(10.0, 11.0),
+                new Coordinate(11.0, 10.0)
+        ));
+
+        when(plantationRepository.findAll()).thenReturn(List.of(incomplete, invalidGeometry));
+        when(plantationRepository.save(any(Plantation.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        Plantation result = plantationService.createPlantation(request);
+
+        assertNotNull(result.getCode());
+        verify(plantationRepository).save(any(Plantation.class));
+    }
+
+    @Test
+    void updatePlantationSkipsOverlapCheckForExcludedPlantationId() {
+        Plantation existing = new Plantation();
+        existing.setId(5L);
+        existing.setCode("PLT-ABCDEF12");
+        existing.setOwnerId("owner-1");
+        existing.setCoordinates(sampleUpdateRequest().getCoordinates());
+
+        when(plantationRepository.findById(5L)).thenReturn(Optional.of(existing));
+        when(plantationRepository.findAll()).thenReturn(List.of(existing));
+        when(plantationRepository.save(any(Plantation.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        Plantation result = plantationService.updatePlantation(5L, sampleUpdateRequest());
+
+        assertEquals(5L, result.getId());
+        verify(plantationRepository).save(existing);
     }
 
     private CreatePlantationRequest sampleCreateRequest() {
