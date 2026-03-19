@@ -7,6 +7,7 @@ import com.mysawit.plantation.dto.TransferMandorRequest;
 import com.mysawit.plantation.dto.UpdatePlantationRequest;
 import com.mysawit.plantation.exception.PlantationNotFoundException;
 import com.mysawit.plantation.model.Plantation;
+import com.mysawit.plantation.model.Coordinate;
 import com.mysawit.plantation.service.PlantationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -75,6 +76,12 @@ class PlantationControllerWebMvcTest {
         validCreateRequest.setOwnerId("Owner-1");
         validCreateRequest.setDescription("Description X");
         validCreateRequest.setPlantDate(LocalDateTime.of(2025, 1, 1, 0, 0));
+        validCreateRequest.setCoordinates(List.of(
+            new Coordinate(0.0, 0.0),
+            new Coordinate(0.0, 1.0),
+            new Coordinate(1.0, 1.0),
+            new Coordinate(1.0, 0.0)
+        ));
 
         validUpdateRequest = new UpdatePlantationRequest();
         validUpdateRequest.setName("Test Plantation");
@@ -82,6 +89,12 @@ class PlantationControllerWebMvcTest {
         validUpdateRequest.setArea(150.5);
         validUpdateRequest.setDescription("Description X");
         validUpdateRequest.setPlantDate(LocalDateTime.of(2025, 1, 1, 0, 0));
+        validUpdateRequest.setCoordinates(List.of(
+            new Coordinate(0.0, 0.0),
+            new Coordinate(0.0, 1.0),
+            new Coordinate(1.0, 1.0),
+            new Coordinate(1.0, 0.0)
+        ));
     }
 
     @Test

@@ -5,7 +5,10 @@ import com.mysawit.plantation.dto.PlantationRequest;
 import com.mysawit.plantation.dto.UpdatePlantationRequest;
 import com.mysawit.plantation.exception.PlantationNotFoundException;
 import com.mysawit.plantation.model.Plantation;
+import com.mysawit.plantation.model.Coordinate;
 import com.mysawit.plantation.repository.PlantationRepository;
+import com.mysawit.plantation.util.GeometryValidator;
+import org.mockito.Spy;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -26,6 +29,9 @@ class PlantationServiceTest {
 
     @Mock
     private PlantationRepository plantationRepository;
+
+    @Spy
+    private GeometryValidator geometryValidator = new GeometryValidator();
 
     @InjectMocks
     private PlantationService plantationService;
@@ -222,6 +228,54 @@ class PlantationServiceTest {
         verify(plantationRepository, never()).delete(any());
     }
 
+    @Test
+    void deletePlantationThrowsExceptionIfMandorAssigned() {
+        Plantation plantation = new Plantation();
+        plantation.setMandorId("mandor-1");
+        when(plantationRepository.findById(5L)).thenReturn(Optional.of(plantation));
+
+        com.mysawit.plantation.exception.MandorAssignedException exception = assertThrows(
+                com.mysawit.plantation.exception.MandorAssignedException.class,
+                () -> plantationService.deletePlantation(5L)
+        );
+
+        assertTrue(exception.getMessage().contains("Cannot delete plantation with ID 5 as it has an assigned mandor"));
+        verify(plantationRepository, never()).delete(any());
+    }
+
+    @Test
+    void createPlantationThrowsIfGeometryNotSquare() {
+        CreatePlantationRequest request = sampleCreateRequest();
+        request.setCoordinates(List.of(
+            new Coordinate(0.0, 0.0),
+            new Coordinate(0.0, 1.0),
+            new Coordinate(2.0, 1.0),
+            new Coordinate(2.0, 0.0)
+        ));
+
+        com.mysawit.plantation.exception.InvalidGeometryException exception = assertThrows(
+                com.mysawit.plantation.exception.InvalidGeometryException.class,
+                () -> plantationService.createPlantation(request)
+        );
+        assertTrue(exception.getMessage().contains("do not form a valid square"));
+    }
+
+    @Test
+    void createPlantationThrowsIfOverlapping() {
+        CreatePlantationRequest request = sampleCreateRequest();
+        
+        Plantation existing = new Plantation();
+        existing.setId(99L);
+        existing.setCoordinates(request.getCoordinates());
+        when(plantationRepository.findAll()).thenReturn(List.of(existing));
+
+        com.mysawit.plantation.exception.OverlappingPlantationException exception = assertThrows(
+                com.mysawit.plantation.exception.OverlappingPlantationException.class,
+                () -> plantationService.createPlantation(request)
+        );
+        assertTrue(exception.getMessage().contains("overlaps with existing plantation"));
+    }
+
     private CreatePlantationRequest sampleCreateRequest() {
         CreatePlantationRequest request = new CreatePlantationRequest();
         request.setName("Plantation");
@@ -230,6 +284,12 @@ class PlantationServiceTest {
         request.setOwnerId("10");
         request.setDescription("desc");
         request.setPlantDate(LocalDateTime.of(2026, 1, 1, 0, 0));
+        request.setCoordinates(List.of(
+            new Coordinate(0.0, 0.0),
+            new Coordinate(0.0, 1.0),
+            new Coordinate(1.0, 1.0),
+            new Coordinate(1.0, 0.0)
+        ));
         return request;
     }
 
@@ -240,6 +300,12 @@ class PlantationServiceTest {
         request.setArea(10.0);
         request.setDescription("new-desc");
         request.setPlantDate(LocalDateTime.of(2026, 2, 1, 0, 0));
+        request.setCoordinates(List.of(
+            new Coordinate(0.0, 0.0),
+            new Coordinate(0.0, 1.0),
+            new Coordinate(1.0, 1.0),
+            new Coordinate(1.0, 0.0)
+        ));
         return request;
     }
 
@@ -251,6 +317,12 @@ class PlantationServiceTest {
         request.setOwnerId("10");
         request.setDescription("desc");
         request.setPlantDate(LocalDateTime.of(2026, 1, 1, 0, 0));
+        request.setCoordinates(List.of(
+            new Coordinate(0.0, 0.0),
+            new Coordinate(0.0, 1.0),
+            new Coordinate(1.0, 1.0),
+            new Coordinate(1.0, 0.0)
+        ));
         return request;
     }
 

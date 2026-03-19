@@ -198,13 +198,15 @@ public class PlantationService {
             if (existing.getCoordinates() == null || existing.getCoordinates().size() != 4) {
                 continue;
             }
+            Polygon existingPolygon = null;
             try {
-                Polygon existingPolygon = geometryValidator.createPolygon(existing.getCoordinates());
-                if (newPolygon.intersects(existingPolygon)) {
-                    throw new OverlappingPlantationException("Plantation overlaps with existing plantation ID: " + existing.getId());
-                }
+                existingPolygon = geometryValidator.createPolygon(existing.getCoordinates());
             } catch (Exception e) {
                 // Ignore invalid geometries in DB during overlap check
+                continue;
+            }
+            if (newPolygon.intersects(existingPolygon)) {
+                throw new OverlappingPlantationException("Plantation overlaps with existing plantation ID: " + existing.getId());
             }
         }
     }

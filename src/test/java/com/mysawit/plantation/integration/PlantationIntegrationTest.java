@@ -6,6 +6,7 @@ import com.mysawit.plantation.dto.PlantationResponse;
 import com.mysawit.plantation.dto.TransferMandorRequest;
 import com.mysawit.plantation.dto.UpdatePlantationRequest;
 import com.mysawit.plantation.repository.PlantationRepository;
+import com.mysawit.plantation.model.Coordinate;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -52,6 +53,8 @@ class PlantationIntegrationTest {
     @org.springframework.beans.factory.annotation.Value("${jwt.secret:defaultSuperSecretKeyThatIsAtLeast32BytesLong}")
     private String secret;
 
+    private static int coordOffset = 0;
+
     private String generateToken() {
         return io.jsonwebtoken.Jwts.builder()
                 .subject("test-admin")
@@ -81,6 +84,7 @@ class PlantationIntegrationTest {
 
     @BeforeEach
     void setUp() {
+        coordOffset = 0;
         baseUrl = "http://localhost:" + port + "/api/plantations";
         plantationRepository.deleteAll(); // Clean up before each test
 
@@ -105,6 +109,12 @@ class PlantationIntegrationTest {
         request.setOwnerId("Owner-123");
         request.setDescription("Integration Description");
         request.setPlantDate(LocalDateTime.now().minusDays(10));
+        request.setCoordinates(List.of(
+            new Coordinate(0.0, 0.0),
+            new Coordinate(0.0, 1.0),
+            new Coordinate(1.0, 1.0),
+            new Coordinate(1.0, 0.0)
+        ));
 
         ResponseEntity<PlantationResponse> response = restTemplate.postForEntity(
                 baseUrl, request, PlantationResponse.class);
@@ -151,6 +161,12 @@ class PlantationIntegrationTest {
         updateRequest.setArea(300.5);
         updateRequest.setDescription("Updated Description");
         updateRequest.setPlantDate(LocalDateTime.now().minusDays(5));
+        updateRequest.setCoordinates(List.of(
+            new Coordinate(0.0, 0.0),
+            new Coordinate(0.0, 1.0),
+            new Coordinate(1.0, 1.0),
+            new Coordinate(1.0, 0.0)
+        ));
 
         HttpEntity<UpdatePlantationRequest> requestEntity = new HttpEntity<>(updateRequest);
 
@@ -176,6 +192,12 @@ class PlantationIntegrationTest {
         updateRequest.setArea(300.5);
         updateRequest.setDescription("Updated Description");
         updateRequest.setPlantDate(LocalDateTime.now().minusDays(5));
+        updateRequest.setCoordinates(List.of(
+            new Coordinate(0.0, 0.0),
+            new Coordinate(0.0, 1.0),
+            new Coordinate(1.0, 1.0),
+            new Coordinate(1.0, 0.0)
+        ));
 
         HttpEntity<UpdatePlantationRequest> requestEntity = new HttpEntity<>(updateRequest);
 
@@ -289,7 +311,6 @@ class PlantationIntegrationTest {
         assertThat(getP2.getBody().getMandorId()).isEqualTo("mandor-xyz");
     }
 
-    // Helper method to create plantations directly for subsequent testing
     private PlantationResponse createTestPlantation(String name, String location, String ownerId) {
         CreatePlantationRequest request = new CreatePlantationRequest();
         request.setName(name);
@@ -298,6 +319,15 @@ class PlantationIntegrationTest {
         request.setOwnerId(ownerId);
         request.setDescription("Test Setup Data");
         request.setPlantDate(LocalDateTime.now().minusMonths(1));
+        
+        double offset = coordOffset * 2.0;
+        coordOffset++;
+        request.setCoordinates(List.of(
+            new Coordinate(offset, offset),
+            new Coordinate(offset, offset + 1.0),
+            new Coordinate(offset + 1.0, offset + 1.0),
+            new Coordinate(offset + 1.0, offset)
+        ));
 
         return restTemplate.postForObject(baseUrl, request, PlantationResponse.class);
     }
