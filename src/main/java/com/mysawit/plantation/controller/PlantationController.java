@@ -1,7 +1,9 @@
 package com.mysawit.plantation.controller;
 
+import com.mysawit.plantation.dto.AssignMandorRequest;
 import com.mysawit.plantation.dto.CreatePlantationRequest;
 import com.mysawit.plantation.dto.PlantationResponse;
+import com.mysawit.plantation.dto.TransferMandorRequest;
 import com.mysawit.plantation.dto.UpdatePlantationRequest;
 import com.mysawit.plantation.model.Plantation;
 import com.mysawit.plantation.service.PlantationService;
@@ -71,5 +73,26 @@ public class PlantationController {
     public ResponseEntity<Void> deletePlantation(@PathVariable Long id) {
         plantationService.deletePlantation(id);
         return ResponseEntity.noContent().build();
+    }
+
+    @PreAuthorize("hasRole('ADMIN')")
+    @PostMapping("/{id}/mandor")
+    public ResponseEntity<PlantationResponse> assignMandor(
+            @PathVariable Long id,
+            @Valid @RequestBody AssignMandorRequest request) {
+        Plantation plantation = plantationService.assignMandor(id, request.getMandorId());
+        return ResponseEntity.ok(new PlantationResponse(plantation));
+    }
+
+    @PreAuthorize("hasRole('ADMIN')")
+    @PutMapping("/transfer-mandor")
+    public ResponseEntity<Void> transferMandor(
+            @Valid @RequestBody TransferMandorRequest request) {
+        plantationService.transferMandor(
+                request.getMandorId(),
+                request.getFromPlantationId(),
+                request.getToPlantationId()
+        );
+        return ResponseEntity.ok().build();
     }
 }

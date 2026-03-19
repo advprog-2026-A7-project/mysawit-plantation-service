@@ -42,6 +42,9 @@ public class Plantation {
     @Column(name = "plant_date")
     private LocalDateTime plantDate;
 
+    @Column(name = "mandor_id")
+    private String mandorId;
+
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -140,5 +143,13 @@ public class Plantation {
 
     public void setUpdatedAt(LocalDateTime updatedAt) {
         this.updatedAt = updatedAt;
+    }
+
+    public String getMandorId() {
+        return mandorId;
+    }
+
+    public void setMandorId(String mandorId) {
+        this.mandorId = mandorId;
     }
 }

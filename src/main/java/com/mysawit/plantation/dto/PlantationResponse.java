@@ -11,6 +11,7 @@ public record PlantationResponse(
         Double area,
         String description,
         String ownerId,
+        String mandorId,
         LocalDateTime plantDate,
         LocalDateTime createdAt,
         LocalDateTime updatedAt) {
@@ -24,6 +25,7 @@ public record PlantationResponse(
                 plantation.getArea(),
                 plantation.getDescription(),
                 plantation.getOwnerId(),
+                plantation.getMandorId(),
                 plantation.getPlantDate(),
                 plantation.getCreatedAt(),
                 plantation.getUpdatedAt());
@@ -55,6 +57,10 @@ public record PlantationResponse(
 
     public String getOwnerId() {
         return ownerId;
+    }
+
+    public String getMandorId() {
+        return mandorId;
     }
 
     public LocalDateTime getPlantDate() {

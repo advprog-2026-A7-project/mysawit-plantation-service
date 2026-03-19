@@ -10,6 +10,7 @@ import java.util.Locale;
 import java.util.UUID;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -106,6 +107,37 @@ public class PlantationService {
     public void deletePlantation(Long id) {
         Plantation plantation = getPlantationById(id);
         plantationRepository.delete(plantation);
+    }
+
+    @Transactional
+    public Plantation assignMandor(Long id, String mandorId) {
+        plantationRepository.findByMandorId(mandorId).ifPresent(p -> {
+            throw new IllegalStateException("Mandor with ID " + mandorId + " is already assigned to plantation ID " + p.getId());
+        });
+
+        Plantation plantation = getPlantationById(id);
+        plantation.setMandorId(mandorId);
+        return plantationRepository.save(plantation);
+    }
+
+    @Transactional
+    public void transferMandor(String mandorId, Long fromPlantationId, Long toPlantationId) {
+        Plantation fromPlantation = getPlantationById(fromPlantationId);
+        Plantation toPlantation = getPlantationById(toPlantationId);
+
+        if (fromPlantation.getMandorId() == null || !fromPlantation.getMandorId().equals(mandorId)) {
+            throw new IllegalStateException("Mandor with ID " + mandorId + " is not assigned to plantation ID " + fromPlantationId);
+        }
+
+        if (toPlantation.getMandorId() != null) {
+            throw new IllegalStateException("Target plantation with ID " + toPlantationId + " already has a mandor assigned");
+        }
+
+        fromPlantation.setMandorId(null);
+        toPlantation.setMandorId(mandorId);
+
+        plantationRepository.save(fromPlantation);
+        plantationRepository.save(toPlantation);
     }
 
     private String generatePlantationCode() {
