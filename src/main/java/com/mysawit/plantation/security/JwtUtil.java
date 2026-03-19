@@ -15,7 +15,7 @@ public class JwtUtil {
 
     private final SecretKey secretKey;
 
-    public JwtUtil(@Value("${jwt.secret:defaultSuperSecretKeyThatIsAtLeast32BytesLong}") String secret) {
+    public JwtUtil(@Value("${JWT_SECRET:defaultSuperSecretKeyThatIsAtLeast32BytesLong}") String secret) {
         this.secretKey = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
     }
 
