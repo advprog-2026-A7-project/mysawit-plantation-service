@@ -6,6 +6,11 @@ import com.mysawit.plantation.dto.UpdatePlantationRequest;
 import com.mysawit.plantation.exception.PlantationNotFoundException;
 import com.mysawit.plantation.model.Plantation;
 import com.mysawit.plantation.repository.PlantationRepository;
+import com.mysawit.plantation.util.GeometryValidator;
+import com.mysawit.plantation.exception.MandorAssignedException;
+import com.mysawit.plantation.exception.InvalidGeometryException;
+import com.mysawit.plantation.exception.OverlappingPlantationException;
+import org.locationtech.jts.geom.Polygon;
 import java.util.Locale;
 import java.util.UUID;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -23,9 +28,11 @@ public class PlantationService {
             "Failed to generate unique plantation code after 5 attempts";
 
     private final PlantationRepository plantationRepository;
+    private final GeometryValidator geometryValidator;
 
-    public PlantationService(PlantationRepository plantationRepository) {
+    public PlantationService(PlantationRepository plantationRepository, GeometryValidator geometryValidator) {
         this.plantationRepository = plantationRepository;
+        this.geometryValidator = geometryValidator;
     }
 
     public List<Plantation> getAllPlantations() {
@@ -46,6 +53,8 @@ public class PlantationService {
     }
 
     public Plantation createPlantation(CreatePlantationRequest request) {
+        validateGeometryAndOverlap(request.getCoordinates(), null);
+
         DataIntegrityViolationException lastCodeCollisionException = null;
 
         for (int attempt = 1; attempt <= MAX_CODE_GENERATION_RETRIES; attempt++) {
@@ -57,6 +66,7 @@ public class PlantationService {
             plantation.setOwnerId(request.getOwnerId());
             plantation.setDescription(request.getDescription());
             plantation.setPlantDate(request.getPlantDate());
+            plantation.setCoordinates(request.getCoordinates());
 
             try {
                 return plantationRepository.save(plantation);
@@ -79,17 +89,21 @@ public class PlantationService {
         createRequest.setOwnerId(request.getOwnerId());
         createRequest.setDescription(request.getDescription());
         createRequest.setPlantDate(request.getPlantDate());
+        createRequest.setCoordinates(request.getCoordinates());
         return createPlantation(createRequest);
     }
 
     public Plantation updatePlantation(Long id, UpdatePlantationRequest request) {
         Plantation plantation = getPlantationById(id);
 
+        validateGeometryAndOverlap(request.getCoordinates(), id);
+
         plantation.setName(request.getName());
         plantation.setLocation(request.getLocation());
         plantation.setArea(request.getArea());
         plantation.setDescription(request.getDescription());
         plantation.setPlantDate(request.getPlantDate());
+        plantation.setCoordinates(request.getCoordinates());
 
         return plantationRepository.save(plantation);
     }
@@ -101,11 +115,15 @@ public class PlantationService {
         updateRequest.setArea(request.getArea());
         updateRequest.setDescription(request.getDescription());
         updateRequest.setPlantDate(request.getPlantDate());
+        updateRequest.setCoordinates(request.getCoordinates());
         return updatePlantation(id, updateRequest);
     }
 
     public void deletePlantation(Long id) {
         Plantation plantation = getPlantationById(id);
+        if (plantation.getMandorId() != null) {
+            throw new MandorAssignedException("Cannot delete plantation with ID " + id + " as it has an assigned mandor");
+        }
         plantationRepository.delete(plantation);
     }
 
@@ -163,5 +181,31 @@ public class PlantationService {
             throwable = throwable.getCause();
         }
         return false;
+    }
+
+    private void validateGeometryAndOverlap(List<com.mysawit.plantation.model.Coordinate> coordinates, Long excludeId) {
+        if (!geometryValidator.isSquare(coordinates)) {
+            throw new InvalidGeometryException("The provided coordinates do not form a valid square");
+        }
+        
+        Polygon newPolygon = geometryValidator.createPolygon(coordinates);
+        
+        List<Plantation> existingPlantations = plantationRepository.findAll();
+        for (Plantation existing : existingPlantations) {
+            if (excludeId != null && excludeId.equals(existing.getId())) {
+                continue;
+            }
+            if (existing.getCoordinates() == null || existing.getCoordinates().size() != 4) {
+                continue;
+            }
+            try {
+                Polygon existingPolygon = geometryValidator.createPolygon(existing.getCoordinates());
+                if (newPolygon.intersects(existingPolygon)) {
+                    throw new OverlappingPlantationException("Plantation overlaps with existing plantation ID: " + existing.getId());
+                }
+            } catch (Exception e) {
+                // Ignore invalid geometries in DB during overlap check
+            }
+        }
     }
 }

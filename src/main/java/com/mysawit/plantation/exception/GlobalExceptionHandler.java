@@ -15,4 +15,14 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
                 .body(Map.of("error", exception.getMessage()));
     }
+    @ExceptionHandler({
+        MandorAssignedException.class,
+        InvalidGeometryException.class,
+        OverlappingPlantationException.class
+    })
+    public ResponseEntity<Map<String, String>> handleBadRequest(
+            RuntimeException exception) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(Map.of("error", exception.getMessage()));
+    }
 }
