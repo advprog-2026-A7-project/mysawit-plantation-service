@@ -1,7 +1,9 @@
 package com.mysawit.plantation.integration;
 
+import com.mysawit.plantation.dto.AssignMandorRequest;
 import com.mysawit.plantation.dto.CreatePlantationRequest;
 import com.mysawit.plantation.dto.PlantationResponse;
+import com.mysawit.plantation.dto.TransferMandorRequest;
 import com.mysawit.plantation.dto.UpdatePlantationRequest;
 import com.mysawit.plantation.repository.PlantationRepository;
 import org.junit.jupiter.api.AfterEach;
@@ -245,6 +247,46 @@ class PlantationIntegrationTest {
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody()).hasSize(2);
+    }
+
+    @Test
+    void testAssignAndTransferMandor() {
+        PlantationResponse p1 = createTestPlantation("Plant 1", "Loc 1", "Owner-1");
+        PlantationResponse p2 = createTestPlantation("Plant 2", "Loc 2", "Owner-1");
+
+        // Assign Mandor
+        AssignMandorRequest assignReq = new AssignMandorRequest();
+        assignReq.setMandorId("mandor-xyz");
+
+        ResponseEntity<PlantationResponse> assignResp = restTemplate.postForEntity(
+                baseUrl + "/" + p1.getId() + "/mandor", assignReq, PlantationResponse.class);
+        
+        assertThat(assignResp.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(assignResp.getBody().getMandorId()).isEqualTo("mandor-xyz");
+
+        // Transfer Mandor
+        TransferMandorRequest transferReq = new TransferMandorRequest();
+        transferReq.setMandorId("mandor-xyz");
+        transferReq.setFromPlantationId(p1.getId());
+        transferReq.setToPlantationId(p2.getId());
+
+        HttpEntity<TransferMandorRequest> requestEntity = new HttpEntity<>(transferReq);
+        ResponseEntity<Void> transferResp = restTemplate.exchange(
+                baseUrl + "/transfer-mandor",
+                HttpMethod.PUT,
+                requestEntity,
+                Void.class);
+
+        assertThat(transferResp.getStatusCode()).isEqualTo(HttpStatus.OK);
+
+        // Verify transfer
+        ResponseEntity<PlantationResponse> getP1 = restTemplate.getForEntity(
+                baseUrl + "/" + p1.getId(), PlantationResponse.class);
+        assertThat(getP1.getBody().getMandorId()).isNull();
+
+        ResponseEntity<PlantationResponse> getP2 = restTemplate.getForEntity(
+                baseUrl + "/" + p2.getId(), PlantationResponse.class);
+        assertThat(getP2.getBody().getMandorId()).isEqualTo("mandor-xyz");
     }
 
     // Helper method to create plantations directly for subsequent testing

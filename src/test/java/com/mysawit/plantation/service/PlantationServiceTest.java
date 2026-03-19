@@ -253,4 +253,102 @@ class PlantationServiceTest {
         request.setPlantDate(LocalDateTime.of(2026, 1, 1, 0, 0));
         return request;
     }
+
+    @Test
+    void assignMandorSuccess() {
+        Plantation plantation = new Plantation();
+        plantation.setId(1L);
+        
+        when(plantationRepository.findByMandorId("mandor-1")).thenReturn(Optional.empty());
+        when(plantationRepository.findById(1L)).thenReturn(Optional.of(plantation));
+        when(plantationRepository.save(plantation)).thenReturn(plantation);
+
+        Plantation result = plantationService.assignMandor(1L, "mandor-1");
+        assertEquals("mandor-1", result.getMandorId());
+        verify(plantationRepository).save(plantation);
+    }
+
+    @Test
+    void assignMandorThrowsIfAlreadyAssigned() {
+        Plantation existing = new Plantation();
+        existing.setId(2L);
+        when(plantationRepository.findByMandorId("mandor-1")).thenReturn(Optional.of(existing));
+
+        IllegalStateException ex = assertThrows(IllegalStateException.class, () -> 
+            plantationService.assignMandor(1L, "mandor-1"));
+        assertTrue(ex.getMessage().contains("already assigned"));
+    }
+
+    @Test
+    void transferMandorSuccess() {
+        Plantation source = new Plantation();
+        source.setId(1L);
+        source.setMandorId("mandor-1");
+
+        Plantation target = new Plantation();
+        target.setId(2L);
+
+        when(plantationRepository.findById(1L)).thenReturn(Optional.of(source));
+        when(plantationRepository.findById(2L)).thenReturn(Optional.of(target));
+        when(plantationRepository.save(source)).thenReturn(source);
+        when(plantationRepository.save(target)).thenReturn(target);
+
+        plantationService.transferMandor("mandor-1", 1L, 2L);
+
+        assertNull(source.getMandorId());
+        assertEquals("mandor-1", target.getMandorId());
+        verify(plantationRepository).save(source);
+        verify(plantationRepository).save(target);
+    }
+
+    @Test
+    void transferMandorThrowsIfSourceNotMatching() {
+        Plantation source = new Plantation();
+        source.setId(1L);
+        source.setMandorId("mandor-2");
+
+        Plantation target = new Plantation();
+        target.setId(2L);
+
+        when(plantationRepository.findById(1L)).thenReturn(Optional.of(source));
+        when(plantationRepository.findById(2L)).thenReturn(Optional.of(target));
+
+        IllegalStateException ex = assertThrows(IllegalStateException.class, () -> 
+            plantationService.transferMandor("mandor-1", 1L, 2L));
+        assertTrue(ex.getMessage().contains("not assigned to plantation"));
+    }
+
+    @Test
+    void transferMandorThrowsIfSourceMandorNull() {
+        Plantation source = new Plantation();
+        source.setId(1L);
+
+        Plantation target = new Plantation();
+        target.setId(2L);
+
+        when(plantationRepository.findById(1L)).thenReturn(Optional.of(source));
+        when(plantationRepository.findById(2L)).thenReturn(Optional.of(target));
+
+        IllegalStateException ex = assertThrows(IllegalStateException.class, () -> 
+            plantationService.transferMandor("mandor-1", 1L, 2L));
+        assertTrue(ex.getMessage().contains("not assigned to plantation"));
+    }
+
+    @Test
+    void transferMandorThrowsIfTargetAlreadyHasMandor() {
+        Plantation source = new Plantation();
+        source.setId(1L);
+        source.setMandorId("mandor-1"); 
+
+        Plantation target = new Plantation();
+        target.setId(2L);
+        target.setMandorId("mandor-3");
+
+        when(plantationRepository.findById(1L)).thenReturn(Optional.of(source));
+        when(plantationRepository.findById(2L)).thenReturn(Optional.of(target));
+
+        IllegalStateException ex = assertThrows(IllegalStateException.class, () -> 
+            plantationService.transferMandor("mandor-1", 1L, 2L));
+        assertTrue(ex.getMessage().contains("already has a mandor assigned"));
+    }
 }

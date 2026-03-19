@@ -1,7 +1,9 @@
 package com.mysawit.plantation.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.mysawit.plantation.dto.AssignMandorRequest;
 import com.mysawit.plantation.dto.CreatePlantationRequest;
+import com.mysawit.plantation.dto.TransferMandorRequest;
 import com.mysawit.plantation.dto.UpdatePlantationRequest;
 import com.mysawit.plantation.exception.PlantationNotFoundException;
 import com.mysawit.plantation.model.Plantation;
@@ -189,5 +191,38 @@ class PlantationControllerWebMvcTest {
                 .andExpect(status().isNotFound())
                 .andExpect(content().contentType(MediaType.APPLICATION_JSON))
                 .andExpect(jsonPath("$.error", is("Plantation not found with id: 99")));
+    }
+
+    @Test
+    void assignMandor_Returns200AndEntity() throws Exception {
+        AssignMandorRequest request = new AssignMandorRequest();
+        request.setMandorId("mandor-1");
+        
+        Plantation p = new Plantation();
+        p.setId(1L);
+        p.setMandorId("mandor-1");
+
+        when(plantationService.assignMandor(1L, "mandor-1")).thenReturn(p);
+
+        mockMvc.perform(post("/api/plantations/1/mandor")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.mandorId", is("mandor-1")));
+    }
+
+    @Test
+    void transferMandor_Returns200() throws Exception {
+        TransferMandorRequest request = new TransferMandorRequest();
+        request.setMandorId("mandor-1");
+        request.setFromPlantationId(1L);
+        request.setToPlantationId(2L);
+
+        doNothing().when(plantationService).transferMandor("mandor-1", 1L, 2L);
+
+        mockMvc.perform(put("/api/plantations/transfer-mandor")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk());
     }
 }
