@@ -8,6 +8,9 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.time.LocalDateTime;
+import jakarta.persistence.ElementCollection;
+import java.util.ArrayList;
+import java.util.List;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
@@ -42,6 +45,9 @@ public class Plantation {
     @Column(name = "plant_date")
     private LocalDateTime plantDate;
 
+    @Column(name = "mandor_id")
+    private String mandorId;
+
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -49,6 +55,9 @@ public class Plantation {
     @LastModifiedDate
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+
+    @ElementCollection
+    private List<Coordinate> coordinates = new ArrayList<>();
 
     // Constructors
     public Plantation() {
@@ -140,5 +149,21 @@ public class Plantation {
 
     public void setUpdatedAt(LocalDateTime updatedAt) {
         this.updatedAt = updatedAt;
+    }
+
+    public String getMandorId() {
+        return mandorId;
+    }
+
+    public void setMandorId(String mandorId) {
+        this.mandorId = mandorId;
+    }
+
+    public List<Coordinate> getCoordinates() {
+        return coordinates;
+    }
+
+    public void setCoordinates(List<Coordinate> coordinates) {
+        this.coordinates = coordinates;
     }
 }

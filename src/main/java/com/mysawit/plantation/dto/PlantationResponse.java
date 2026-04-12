@@ -1,7 +1,9 @@
 package com.mysawit.plantation.dto;
 
 import com.mysawit.plantation.model.Plantation;
+import com.mysawit.plantation.model.Coordinate;
 import java.time.LocalDateTime;
+import java.util.List;
 
 public record PlantationResponse(
         Long id,
@@ -11,7 +13,9 @@ public record PlantationResponse(
         Double area,
         String description,
         String ownerId,
+        String mandorId,
         LocalDateTime plantDate,
+        List<Coordinate> coordinates,
         LocalDateTime createdAt,
         LocalDateTime updatedAt) {
 
@@ -24,7 +28,9 @@ public record PlantationResponse(
                 plantation.getArea(),
                 plantation.getDescription(),
                 plantation.getOwnerId(),
+                plantation.getMandorId(),
                 plantation.getPlantDate(),
+                plantation.getCoordinates(),
                 plantation.getCreatedAt(),
                 plantation.getUpdatedAt());
     }
@@ -57,6 +63,10 @@ public record PlantationResponse(
         return ownerId;
     }
 
+    public String getMandorId() {
+        return mandorId;
+    }
+
     public LocalDateTime getPlantDate() {
         return plantDate;
     }
@@ -67,5 +77,9 @@ public record PlantationResponse(
 
     public LocalDateTime getUpdatedAt() {
         return updatedAt;
+    }
+
+    public List<Coordinate> getCoordinates() {
+        return coordinates;
     }
 }

@@ -5,7 +5,10 @@ import com.mysawit.plantation.dto.PlantationRequest;
 import com.mysawit.plantation.dto.UpdatePlantationRequest;
 import com.mysawit.plantation.exception.PlantationNotFoundException;
 import com.mysawit.plantation.model.Plantation;
+import com.mysawit.plantation.model.Coordinate;
 import com.mysawit.plantation.repository.PlantationRepository;
+import com.mysawit.plantation.util.GeometryValidator;
+import org.mockito.Spy;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -26,6 +29,9 @@ class PlantationServiceTest {
 
     @Mock
     private PlantationRepository plantationRepository;
+
+    @Spy
+    private GeometryValidator geometryValidator = new GeometryValidator();
 
     @InjectMocks
     private PlantationService plantationService;
@@ -147,6 +153,50 @@ class PlantationServiceTest {
     }
 
     @Test
+    void createPlantationDoesNotRetryWhenViolationMessageIsNull() {
+        CreatePlantationRequest request = sampleCreateRequest();
+        DataIntegrityViolationException violation = new DataIntegrityViolationException(
+                null,
+                new RuntimeException()
+        );
+        when(plantationRepository.save(any(Plantation.class))).thenThrow(violation);
+
+        assertThrows(DataIntegrityViolationException.class, () -> plantationService.createPlantation(request));
+
+        verify(plantationRepository, times(1)).save(any(Plantation.class));
+    }
+
+    @Test
+    void createPlantationRetriesWhenDuplicateMessageMentionsCode() {
+        CreatePlantationRequest request = sampleCreateRequest();
+        DataIntegrityViolationException collision = new DataIntegrityViolationException("duplicate code value");
+
+        when(plantationRepository.save(any(Plantation.class)))
+                .thenThrow(collision)
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        Plantation result = plantationService.createPlantation(request);
+
+        assertNotNull(result.getCode());
+        verify(plantationRepository, times(2)).save(any(Plantation.class));
+    }
+
+    @Test
+    void createPlantationRetriesWhenConstraintMessageMentionsCode() {
+        CreatePlantationRequest request = sampleCreateRequest();
+        DataIntegrityViolationException collision = new DataIntegrityViolationException("code constraint violated");
+
+        when(plantationRepository.save(any(Plantation.class)))
+                .thenThrow(collision)
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        Plantation result = plantationService.createPlantation(request);
+
+        assertNotNull(result.getCode());
+        verify(plantationRepository, times(2)).save(any(Plantation.class));
+    }
+
+    @Test
     void createPlantationFromLegacyRequestMapsAndSaves() {
         PlantationRequest request = sampleLegacyRequest();
         when(plantationRepository.save(any(Plantation.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -222,6 +272,102 @@ class PlantationServiceTest {
         verify(plantationRepository, never()).delete(any());
     }
 
+    @Test
+    void deletePlantationThrowsExceptionIfMandorAssigned() {
+        Plantation plantation = new Plantation();
+        plantation.setMandorId("mandor-1");
+        when(plantationRepository.findById(5L)).thenReturn(Optional.of(plantation));
+
+        com.mysawit.plantation.exception.MandorAssignedException exception = assertThrows(
+                com.mysawit.plantation.exception.MandorAssignedException.class,
+                () -> plantationService.deletePlantation(5L)
+        );
+
+        assertTrue(exception.getMessage().contains("Cannot delete plantation with ID 5 as it has an assigned mandor"));
+        verify(plantationRepository, never()).delete(any());
+    }
+
+    @Test
+    void createPlantationThrowsIfGeometryNotSquare() {
+        CreatePlantationRequest request = sampleCreateRequest();
+        request.setCoordinates(List.of(
+            new Coordinate(0.0, 0.0),
+            new Coordinate(0.0, 1.0),
+            new Coordinate(2.0, 1.0),
+            new Coordinate(2.0, 0.0)
+        ));
+
+        com.mysawit.plantation.exception.InvalidGeometryException exception = assertThrows(
+                com.mysawit.plantation.exception.InvalidGeometryException.class,
+                () -> plantationService.createPlantation(request)
+        );
+        assertTrue(exception.getMessage().contains("do not form a valid square"));
+    }
+
+    @Test
+    void createPlantationThrowsIfOverlapping() {
+        CreatePlantationRequest request = sampleCreateRequest();
+        
+        Plantation existing = new Plantation();
+        existing.setId(99L);
+        existing.setCoordinates(request.getCoordinates());
+        when(plantationRepository.findAll()).thenReturn(List.of(existing));
+
+        com.mysawit.plantation.exception.OverlappingPlantationException exception = assertThrows(
+                com.mysawit.plantation.exception.OverlappingPlantationException.class,
+                () -> plantationService.createPlantation(request)
+        );
+        assertTrue(exception.getMessage().contains("overlaps with existing plantation"));
+    }
+
+    @Test
+    void createPlantationIgnoresIncompleteAndInvalidExistingGeometries() {
+        CreatePlantationRequest request = sampleCreateRequest();
+
+        Plantation incomplete = new Plantation();
+        incomplete.setId(10L);
+        incomplete.setCoordinates(List.of(
+                new Coordinate(0.0, 0.0),
+                new Coordinate(0.0, 1.0),
+                new Coordinate(1.0, 1.0)
+        ));
+
+        Plantation invalidGeometry = new Plantation();
+        invalidGeometry.setId(11L);
+        invalidGeometry.setCoordinates(List.of(
+                new Coordinate(10.0, 10.0),
+                new Coordinate(11.0, 11.0),
+                new Coordinate(10.0, 11.0),
+                new Coordinate(11.0, 10.0)
+        ));
+
+        when(plantationRepository.findAll()).thenReturn(List.of(incomplete, invalidGeometry));
+        when(plantationRepository.save(any(Plantation.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        Plantation result = plantationService.createPlantation(request);
+
+        assertNotNull(result.getCode());
+        verify(plantationRepository).save(any(Plantation.class));
+    }
+
+    @Test
+    void updatePlantationSkipsOverlapCheckForExcludedPlantationId() {
+        Plantation existing = new Plantation();
+        existing.setId(5L);
+        existing.setCode("PLT-ABCDEF12");
+        existing.setOwnerId("owner-1");
+        existing.setCoordinates(sampleUpdateRequest().getCoordinates());
+
+        when(plantationRepository.findById(5L)).thenReturn(Optional.of(existing));
+        when(plantationRepository.findAll()).thenReturn(List.of(existing));
+        when(plantationRepository.save(any(Plantation.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        Plantation result = plantationService.updatePlantation(5L, sampleUpdateRequest());
+
+        assertEquals(5L, result.getId());
+        verify(plantationRepository).save(existing);
+    }
+
     private CreatePlantationRequest sampleCreateRequest() {
         CreatePlantationRequest request = new CreatePlantationRequest();
         request.setName("Plantation");
@@ -230,6 +376,12 @@ class PlantationServiceTest {
         request.setOwnerId("10");
         request.setDescription("desc");
         request.setPlantDate(LocalDateTime.of(2026, 1, 1, 0, 0));
+        request.setCoordinates(List.of(
+            new Coordinate(0.0, 0.0),
+            new Coordinate(0.0, 1.0),
+            new Coordinate(1.0, 1.0),
+            new Coordinate(1.0, 0.0)
+        ));
         return request;
     }
 
@@ -240,6 +392,12 @@ class PlantationServiceTest {
         request.setArea(10.0);
         request.setDescription("new-desc");
         request.setPlantDate(LocalDateTime.of(2026, 2, 1, 0, 0));
+        request.setCoordinates(List.of(
+            new Coordinate(0.0, 0.0),
+            new Coordinate(0.0, 1.0),
+            new Coordinate(1.0, 1.0),
+            new Coordinate(1.0, 0.0)
+        ));
         return request;
     }
 
@@ -251,6 +409,110 @@ class PlantationServiceTest {
         request.setOwnerId("10");
         request.setDescription("desc");
         request.setPlantDate(LocalDateTime.of(2026, 1, 1, 0, 0));
+        request.setCoordinates(List.of(
+            new Coordinate(0.0, 0.0),
+            new Coordinate(0.0, 1.0),
+            new Coordinate(1.0, 1.0),
+            new Coordinate(1.0, 0.0)
+        ));
         return request;
+    }
+
+    @Test
+    void assignMandorSuccess() {
+        Plantation plantation = new Plantation();
+        plantation.setId(1L);
+        
+        when(plantationRepository.findByMandorId("mandor-1")).thenReturn(Optional.empty());
+        when(plantationRepository.findById(1L)).thenReturn(Optional.of(plantation));
+        when(plantationRepository.save(plantation)).thenReturn(plantation);
+
+        Plantation result = plantationService.assignMandor(1L, "mandor-1");
+        assertEquals("mandor-1", result.getMandorId());
+        verify(plantationRepository).save(plantation);
+    }
+
+    @Test
+    void assignMandorThrowsIfAlreadyAssigned() {
+        Plantation existing = new Plantation();
+        existing.setId(2L);
+        when(plantationRepository.findByMandorId("mandor-1")).thenReturn(Optional.of(existing));
+
+        IllegalStateException ex = assertThrows(IllegalStateException.class, () -> 
+            plantationService.assignMandor(1L, "mandor-1"));
+        assertTrue(ex.getMessage().contains("already assigned"));
+    }
+
+    @Test
+    void transferMandorSuccess() {
+        Plantation source = new Plantation();
+        source.setId(1L);
+        source.setMandorId("mandor-1");
+
+        Plantation target = new Plantation();
+        target.setId(2L);
+
+        when(plantationRepository.findById(1L)).thenReturn(Optional.of(source));
+        when(plantationRepository.findById(2L)).thenReturn(Optional.of(target));
+        when(plantationRepository.save(source)).thenReturn(source);
+        when(plantationRepository.save(target)).thenReturn(target);
+
+        plantationService.transferMandor("mandor-1", 1L, 2L);
+
+        assertNull(source.getMandorId());
+        assertEquals("mandor-1", target.getMandorId());
+        verify(plantationRepository).save(source);
+        verify(plantationRepository).save(target);
+    }
+
+    @Test
+    void transferMandorThrowsIfSourceNotMatching() {
+        Plantation source = new Plantation();
+        source.setId(1L);
+        source.setMandorId("mandor-2");
+
+        Plantation target = new Plantation();
+        target.setId(2L);
+
+        when(plantationRepository.findById(1L)).thenReturn(Optional.of(source));
+        when(plantationRepository.findById(2L)).thenReturn(Optional.of(target));
+
+        IllegalStateException ex = assertThrows(IllegalStateException.class, () -> 
+            plantationService.transferMandor("mandor-1", 1L, 2L));
+        assertTrue(ex.getMessage().contains("not assigned to plantation"));
+    }
+
+    @Test
+    void transferMandorThrowsIfSourceMandorNull() {
+        Plantation source = new Plantation();
+        source.setId(1L);
+
+        Plantation target = new Plantation();
+        target.setId(2L);
+
+        when(plantationRepository.findById(1L)).thenReturn(Optional.of(source));
+        when(plantationRepository.findById(2L)).thenReturn(Optional.of(target));
+
+        IllegalStateException ex = assertThrows(IllegalStateException.class, () -> 
+            plantationService.transferMandor("mandor-1", 1L, 2L));
+        assertTrue(ex.getMessage().contains("not assigned to plantation"));
+    }
+
+    @Test
+    void transferMandorThrowsIfTargetAlreadyHasMandor() {
+        Plantation source = new Plantation();
+        source.setId(1L);
+        source.setMandorId("mandor-1"); 
+
+        Plantation target = new Plantation();
+        target.setId(2L);
+        target.setMandorId("mandor-3");
+
+        when(plantationRepository.findById(1L)).thenReturn(Optional.of(source));
+        when(plantationRepository.findById(2L)).thenReturn(Optional.of(target));
+
+        IllegalStateException ex = assertThrows(IllegalStateException.class, () -> 
+            plantationService.transferMandor("mandor-1", 1L, 2L));
+        assertTrue(ex.getMessage().contains("already has a mandor assigned"));
     }
 }

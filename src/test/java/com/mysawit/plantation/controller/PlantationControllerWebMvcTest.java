@@ -1,10 +1,13 @@
 package com.mysawit.plantation.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.mysawit.plantation.dto.AssignMandorRequest;
 import com.mysawit.plantation.dto.CreatePlantationRequest;
+import com.mysawit.plantation.dto.TransferMandorRequest;
 import com.mysawit.plantation.dto.UpdatePlantationRequest;
 import com.mysawit.plantation.exception.PlantationNotFoundException;
 import com.mysawit.plantation.model.Plantation;
+import com.mysawit.plantation.model.Coordinate;
 import com.mysawit.plantation.service.PlantationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -27,8 +30,19 @@ import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
+import org.springframework.context.annotation.Import;
+import org.springframework.security.test.context.support.WithMockUser;
+import com.mysawit.plantation.security.JwtAuthenticationFilter;
+import com.mysawit.plantation.security.JwtUtil;
+import com.mysawit.plantation.security.SecurityConfig;
+
 @WebMvcTest(PlantationController.class)
+@Import({ SecurityConfig.class, JwtAuthenticationFilter.class })
+@WithMockUser(roles = "ADMIN")
 class PlantationControllerWebMvcTest {
+
+    @MockBean
+    private JwtUtil jwtUtil;
 
     @Autowired
     private MockMvc mockMvc;
@@ -62,6 +76,12 @@ class PlantationControllerWebMvcTest {
         validCreateRequest.setOwnerId("Owner-1");
         validCreateRequest.setDescription("Description X");
         validCreateRequest.setPlantDate(LocalDateTime.of(2025, 1, 1, 0, 0));
+        validCreateRequest.setCoordinates(List.of(
+            new Coordinate(0.0, 0.0),
+            new Coordinate(0.0, 1.0),
+            new Coordinate(1.0, 1.0),
+            new Coordinate(1.0, 0.0)
+        ));
 
         validUpdateRequest = new UpdatePlantationRequest();
         validUpdateRequest.setName("Test Plantation");
@@ -69,6 +89,12 @@ class PlantationControllerWebMvcTest {
         validUpdateRequest.setArea(150.5);
         validUpdateRequest.setDescription("Description X");
         validUpdateRequest.setPlantDate(LocalDateTime.of(2025, 1, 1, 0, 0));
+        validUpdateRequest.setCoordinates(List.of(
+            new Coordinate(0.0, 0.0),
+            new Coordinate(0.0, 1.0),
+            new Coordinate(1.0, 1.0),
+            new Coordinate(1.0, 0.0)
+        ));
     }
 
     @Test
@@ -131,8 +157,8 @@ class PlantationControllerWebMvcTest {
         validCreateRequest.setName(""); // Blank name violates @NotBlank
 
         mockMvc.perform(post("/api/plantations")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(validCreateRequest)))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(validCreateRequest)))
                 .andExpect(status().isBadRequest());
     }
 
@@ -178,5 +204,38 @@ class PlantationControllerWebMvcTest {
                 .andExpect(status().isNotFound())
                 .andExpect(content().contentType(MediaType.APPLICATION_JSON))
                 .andExpect(jsonPath("$.error", is("Plantation not found with id: 99")));
+    }
+
+    @Test
+    void assignMandor_Returns200AndEntity() throws Exception {
+        AssignMandorRequest request = new AssignMandorRequest();
+        request.setMandorId("mandor-1");
+        
+        Plantation p = new Plantation();
+        p.setId(1L);
+        p.setMandorId("mandor-1");
+
+        when(plantationService.assignMandor(1L, "mandor-1")).thenReturn(p);
+
+        mockMvc.perform(post("/api/plantations/1/mandor")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.mandorId", is("mandor-1")));
+    }
+
+    @Test
+    void transferMandor_Returns200() throws Exception {
+        TransferMandorRequest request = new TransferMandorRequest();
+        request.setMandorId("mandor-1");
+        request.setFromPlantationId(1L);
+        request.setToPlantationId(2L);
+
+        doNothing().when(plantationService).transferMandor("mandor-1", 1L, 2L);
+
+        mockMvc.perform(put("/api/plantations/transfer-mandor")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk());
     }
 }

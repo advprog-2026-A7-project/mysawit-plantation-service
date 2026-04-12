@@ -3,7 +3,11 @@ package com.mysawit.plantation.dto;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.Size;
+import jakarta.validation.Valid;
 import java.time.LocalDateTime;
+import java.util.List;
+import com.mysawit.plantation.model.Coordinate;
 
 public class PlantationRequest {
     
@@ -19,6 +23,11 @@ public class PlantationRequest {
     private String ownerId;
     private String description;
     private LocalDateTime plantDate;
+
+    @NotNull(message = "Coordinates are required")
+    @Size(min = 4, max = 4, message = "Exactly 4 coordinates are required")
+    @Valid
+    private List<Coordinate> coordinates;
     
     // Getters and Setters
     public String getName() {
@@ -67,5 +76,13 @@ public class PlantationRequest {
     
     public void setPlantDate(LocalDateTime plantDate) {
         this.plantDate = plantDate;
+    }
+
+    public List<Coordinate> getCoordinates() {
+        return coordinates;
+    }
+    
+    public void setCoordinates(List<Coordinate> coordinates) {
+        this.coordinates = coordinates;
     }
 }

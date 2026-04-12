@@ -14,4 +14,6 @@ public interface PlantationRepository extends JpaRepository<Plantation, Long> {
 
     List<Plantation> findByOwnerId(String ownerId);
 
+    Optional<Plantation> findByMandorId(String mandorId);
+
 }
