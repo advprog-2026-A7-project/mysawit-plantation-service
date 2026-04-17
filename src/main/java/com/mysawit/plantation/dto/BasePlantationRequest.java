@@ -9,7 +9,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import com.mysawit.plantation.model.Coordinate;
 
-abstract class BasePlantationRequest {
+public abstract class BasePlantationRequest {
 
     @NotBlank(message = "Plantation name is required")
     private String name;
