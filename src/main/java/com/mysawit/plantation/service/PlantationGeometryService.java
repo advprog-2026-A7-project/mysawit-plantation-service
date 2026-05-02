@@ -24,13 +24,14 @@ public class PlantationGeometryService {
     }
 
     public void validateGeometryAndOverlap(List<Coordinate> coordinates, Long excludeId) {
+        List<Plantation> existingPlantations = plantationRepository.findAll();
+
         if (!geometryValidator.isSquare(coordinates)) {
             throw new InvalidGeometryException("The provided coordinates do not form a valid square");
         }
 
         Polygon newPolygon = geometryValidator.createPolygon(coordinates);
 
-        List<Plantation> existingPlantations = plantationRepository.findAll();
         for (Plantation existing : existingPlantations) {
             if (excludeId != null && excludeId.equals(existing.getId())) {
                 continue;
