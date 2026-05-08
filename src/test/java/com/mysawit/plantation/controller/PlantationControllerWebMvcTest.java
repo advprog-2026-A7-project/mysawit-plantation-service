@@ -163,6 +163,36 @@ class PlantationControllerWebMvcTest {
     }
 
     @Test
+    void createPlantation_Returns400WhenLatitudeOutsideRange() throws Exception {
+        validCreateRequest.setCoordinates(List.of(
+                new Coordinate(91.0000, 101.4000),
+                new Coordinate(91.0000, 101.4010),
+                new Coordinate(91.0010, 101.4010),
+                new Coordinate(91.0010, 101.4000)
+        ));
+
+        mockMvc.perform(post("/api/plantations")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(validCreateRequest)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void createPlantation_Returns400WhenLongitudeOutsideRange() throws Exception {
+        validCreateRequest.setCoordinates(List.of(
+                new Coordinate(-0.5000, 181.0000),
+                new Coordinate(-0.5000, 181.0010),
+                new Coordinate(-0.4990, 181.0010),
+                new Coordinate(-0.4990, 181.0000)
+        ));
+
+        mockMvc.perform(post("/api/plantations")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(validCreateRequest)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     void updatePlantation_Returns200AndEntity() throws Exception {
         when(plantationService.updatePlantation(eq(1L), any(UpdatePlantationRequest.class))).thenReturn(samplePlantation);
 

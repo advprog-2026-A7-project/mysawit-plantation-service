@@ -43,6 +43,22 @@ class GeometryValidatorTest {
     }
 
     @Test
+    void createPolygonRejectsCoordinatesOutsideWorldRange() {
+        InvalidGeometryException exception = assertThrows(
+                InvalidGeometryException.class,
+                () -> geometryValidator.createPolygon(List.of(
+                        new Coordinate(91.0, 0.0),
+                        new Coordinate(91.0, 1.0),
+                        new Coordinate(92.0, 1.0),
+                        new Coordinate(92.0, 0.0)
+                ))
+        );
+
+        assertTrue(exception.getMessage().contains("latitude")
+                || exception.getMessage().contains("longitude"));
+    }
+
+    @Test
     void createPolygonRejectsSelfIntersectingGeometry() {
         InvalidGeometryException exception = assertThrows(
                 InvalidGeometryException.class,
