@@ -8,11 +8,10 @@ import com.mysawit.plantation.model.Plantation;
 import com.mysawit.plantation.model.Coordinate;
 import com.mysawit.plantation.repository.PlantationRepository;
 import com.mysawit.plantation.util.GeometryValidator;
-import org.mockito.Spy;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -30,11 +29,28 @@ class PlantationServiceTest {
     @Mock
     private PlantationRepository plantationRepository;
 
-    @Spy
-    private GeometryValidator geometryValidator = new GeometryValidator();
+    private final GeometryValidator geometryValidator = new GeometryValidator();
 
-    @InjectMocks
     private PlantationService plantationService;
+
+    @BeforeEach
+    void initService() {
+        PlantationMapper plantationMapper = new PlantationMapper();
+        PlantationCodeGenerator plantationCodeGenerator = new PlantationCodeGenerator();
+        PlantationGeometryService plantationGeometryService =
+                new PlantationGeometryService(geometryValidator, plantationRepository);
+        MandorAssignmentService mandorAssignmentService =
+                new MandorAssignmentService(plantationRepository);
+        UniqueConstraintInspector uniqueConstraintInspector = new UniqueConstraintInspector();
+        plantationService = new PlantationService(
+                plantationRepository,
+                plantationMapper,
+                plantationCodeGenerator,
+                plantationGeometryService,
+                mandorAssignmentService,
+                uniqueConstraintInspector
+        );
+    }
 
     @Test
     void getAllPlantationsReturnsList() {
