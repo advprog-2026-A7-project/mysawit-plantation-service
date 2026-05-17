@@ -90,8 +90,30 @@ public class PlantationService {
         return mandorAssignmentService.assignMandor(id, mandorId);
     }
 
+    public Plantation unassignMandor(Long id) {
+        Plantation plantation = getPlantationById(id);
+        plantation.setMandorId(null);
+        return plantationRepository.save(plantation);
+    }
+
     public void transferMandor(String mandorId, Long fromPlantationId, Long toPlantationId) {
         mandorAssignmentService.transferMandor(mandorId, fromPlantationId, toPlantationId);
+    }
+
+    public Plantation assignSupir(Long id, String supirId) {
+        Plantation plantation = getPlantationById(id);
+        plantation.addSupir(supirId);
+        return plantationRepository.save(plantation);
+    }
+
+    public Plantation unassignSupir(Long id, String supirId) {
+        Plantation plantation = getPlantationById(id);
+        plantation.removeSupir(supirId);
+        return plantationRepository.save(plantation);
+    }
+
+    public java.util.Set<String> getSupirsByPlantation(Long id) {
+        return getPlantationById(id).getSupirIds();
     }
 
     private Plantation saveWithCodeRetry(CreatePlantationRequest request) {

@@ -6,11 +6,15 @@ import jakarta.persistence.EntityListeners;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.CollectionTable;
+import jakarta.persistence.JoinColumn;
 import jakarta.persistence.Table;
 import java.time.LocalDateTime;
 import jakarta.persistence.ElementCollection;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
@@ -58,6 +62,11 @@ public class Plantation {
 
     @ElementCollection
     private List<Coordinate> coordinates = new ArrayList<>();
+
+    @ElementCollection
+    @CollectionTable(name = "plantation_supir_ids", joinColumns = @JoinColumn(name = "plantation_id"))
+    @Column(name = "supir_id")
+    private Set<String> supirIds = new HashSet<>();
 
     // Constructors
     public Plantation() {
@@ -165,5 +174,21 @@ public class Plantation {
 
     public void setCoordinates(List<Coordinate> coordinates) {
         this.coordinates = coordinates;
+    }
+
+    public Set<String> getSupirIds() {
+        return supirIds;
+    }
+
+    public void setSupirIds(Set<String> supirIds) {
+        this.supirIds = supirIds;
+    }
+
+    public void addSupir(String supirId) {
+        this.supirIds.add(supirId);
+    }
+
+    public void removeSupir(String supirId) {
+        this.supirIds.remove(supirId);
     }
 }

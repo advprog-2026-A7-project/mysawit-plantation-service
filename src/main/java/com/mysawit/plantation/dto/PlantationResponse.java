@@ -4,6 +4,7 @@ import com.mysawit.plantation.model.Plantation;
 import com.mysawit.plantation.model.Coordinate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Set;
 
 public record PlantationResponse(
         Long id,
@@ -14,6 +15,7 @@ public record PlantationResponse(
         String description,
         String ownerId,
         String mandorId,
+        Set<String> supirIds,
         LocalDateTime plantDate,
         List<Coordinate> coordinates,
         LocalDateTime createdAt,
@@ -29,6 +31,7 @@ public record PlantationResponse(
                 plantation.getDescription(),
                 plantation.getOwnerId(),
                 plantation.getMandorId(),
+                plantation.getSupirIds(),
                 plantation.getPlantDate(),
                 plantation.getCoordinates(),
                 plantation.getCreatedAt(),

@@ -1,6 +1,7 @@
 package com.mysawit.plantation.controller;
 
 import com.mysawit.plantation.dto.AssignMandorRequest;
+import com.mysawit.plantation.dto.AssignSupirRequest;
 import com.mysawit.plantation.dto.CreatePlantationRequest;
 import com.mysawit.plantation.dto.PlantationResponse;
 import com.mysawit.plantation.dto.TransferMandorRequest;
@@ -14,6 +15,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @RestController
@@ -25,6 +27,8 @@ public class PlantationController {
     public PlantationController(PlantationService plantationService) {
         this.plantationService = plantationService;
     }
+
+    // ── CRUD ──────────────────────────────────────────────────────────────────
 
     @PreAuthorize("hasRole('ADMIN')")
     @GetMapping
@@ -75,6 +79,9 @@ public class PlantationController {
         return ResponseEntity.noContent().build();
     }
 
+    // ── MANDOR MANAGEMENT ────────────────────────────────────────────────────
+
+    /** Assign mandor to plantation (constraint: mandor hanya satu per kebun) */
     @PreAuthorize("hasRole('ADMIN')")
     @PostMapping("/{id}/mandor")
     public ResponseEntity<PlantationResponse> assignMandor(
@@ -84,6 +91,19 @@ public class PlantationController {
         return ResponseEntity.ok(new PlantationResponse(plantation));
     }
 
+    /**
+     * Unassign mandor dari kebun.
+     * Constraint docs: "ketika dicopot, Admin Utama harus segera menugaskan mandor ke kebun lainnya"
+     * — enforcement ada di client/UI, bukan di backend (backend hanya support unassign).
+     */
+    @PreAuthorize("hasRole('ADMIN')")
+    @DeleteMapping("/{id}/mandor")
+    public ResponseEntity<PlantationResponse> unassignMandor(@PathVariable Long id) {
+        Plantation plantation = plantationService.unassignMandor(id);
+        return ResponseEntity.ok(new PlantationResponse(plantation));
+    }
+
+    /** Transfer mandor antar kebun atomik */
     @PreAuthorize("hasRole('ADMIN')")
     @PutMapping("/transfer-mandor")
     public ResponseEntity<Void> transferMandor(
@@ -94,5 +114,41 @@ public class PlantationController {
                 request.getToPlantationId()
         );
         return ResponseEntity.ok().build();
+    }
+
+    // ── SUPIR TRUK MANAGEMENT ────────────────────────────────────────────────
+
+    /** Lihat daftar supir yang ditugaskan pada sebuah kebun */
+    @PreAuthorize("hasRole('ADMIN') or hasRole('MANDOR')")
+    @GetMapping("/{id}/supirs")
+    public ResponseEntity<Set<String>> getSupirsByPlantation(@PathVariable Long id) {
+        return ResponseEntity.ok(plantationService.getSupirsByPlantation(id));
+    }
+
+    /**
+     * Assign supir truk ke kebun.
+     * Constraint docs: supir harus ditempatkan di kebun sebelum bisa melakukan aksi.
+     */
+    @PreAuthorize("hasRole('ADMIN')")
+    @PostMapping("/{id}/supirs")
+    public ResponseEntity<PlantationResponse> assignSupir(
+            @PathVariable Long id,
+            @Valid @RequestBody AssignSupirRequest request) {
+        Plantation plantation = plantationService.assignSupir(id, request.getSupirId());
+        return ResponseEntity.ok(new PlantationResponse(plantation));
+    }
+
+    /**
+     * Unassign supir dari kebun.
+     * Constraint docs: "ketika dicopot, Admin Utama harus segera menugaskan Supir Truk ke kebun lainnya"
+     * — enforcement ada di UI.
+     */
+    @PreAuthorize("hasRole('ADMIN')")
+    @DeleteMapping("/{id}/supirs/{supirId}")
+    public ResponseEntity<PlantationResponse> unassignSupir(
+            @PathVariable Long id,
+            @PathVariable String supirId) {
+        Plantation plantation = plantationService.unassignSupir(id, supirId);
+        return ResponseEntity.ok(new PlantationResponse(plantation));
     }
 }
