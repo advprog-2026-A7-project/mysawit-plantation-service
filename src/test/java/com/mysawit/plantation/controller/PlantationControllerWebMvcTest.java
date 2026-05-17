@@ -2,6 +2,7 @@ package com.mysawit.plantation.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mysawit.plantation.dto.AssignMandorRequest;
+import com.mysawit.plantation.dto.AssignSupirRequest;
 import com.mysawit.plantation.dto.CreatePlantationRequest;
 import com.mysawit.plantation.dto.TransferMandorRequest;
 import com.mysawit.plantation.dto.UpdatePlantationRequest;
@@ -19,6 +20,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Set;
 
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
@@ -255,6 +257,18 @@ class PlantationControllerWebMvcTest {
     }
 
     @Test
+    void unassignMandor_Returns200AndEntity() throws Exception {
+        Plantation plantation = new Plantation();
+        plantation.setId(1L);
+
+        when(plantationService.unassignMandor(1L)).thenReturn(plantation);
+
+        mockMvc.perform(delete("/api/plantations/1/mandor"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id", is(1)));
+    }
+
+    @Test
     void transferMandor_Returns200() throws Exception {
         TransferMandorRequest request = new TransferMandorRequest();
         request.setMandorId("mandor-1");
@@ -267,5 +281,44 @@ class PlantationControllerWebMvcTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    void getSupirsByPlantation_Returns200AndSet() throws Exception {
+        when(plantationService.getSupirsByPlantation(1L)).thenReturn(Set.of("supir-1", "supir-2"));
+
+        mockMvc.perform(get("/api/plantations/1/supirs"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(2)));
+    }
+
+    @Test
+    void assignSupir_Returns200AndEntity() throws Exception {
+        AssignSupirRequest request = new AssignSupirRequest();
+        request.setSupirId("supir-1");
+
+        Plantation plantation = new Plantation();
+        plantation.setId(1L);
+        plantation.addSupir("supir-1");
+
+        when(plantationService.assignSupir(1L, "supir-1")).thenReturn(plantation);
+
+        mockMvc.perform(post("/api/plantations/1/supirs")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.supirIds", hasSize(1)));
+    }
+
+    @Test
+    void unassignSupir_Returns200AndEntity() throws Exception {
+        Plantation plantation = new Plantation();
+        plantation.setId(1L);
+
+        when(plantationService.unassignSupir(1L, "supir-1")).thenReturn(plantation);
+
+        mockMvc.perform(delete("/api/plantations/1/supirs/supir-1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id", is(1)));
     }
 }
