@@ -29,6 +29,9 @@ class PlantationServiceTest {
     @Mock
     private PlantationRepository plantationRepository;
 
+    @Mock
+    private PlantationEventPublisher eventPublisher;
+
     private final GeometryValidator geometryValidator = new GeometryValidator();
 
     private PlantationService plantationService;
@@ -48,7 +51,8 @@ class PlantationServiceTest {
                 plantationCodeGenerator,
                 plantationGeometryService,
                 mandorAssignmentService,
-                uniqueConstraintInspector
+                uniqueConstraintInspector,
+                eventPublisher
         );
     }
 
@@ -530,5 +534,62 @@ class PlantationServiceTest {
         IllegalStateException ex = assertThrows(IllegalStateException.class, () -> 
             plantationService.transferMandor("mandor-1", 1L, 2L));
         assertTrue(ex.getMessage().contains("already has a mandor assigned"));
+    }
+
+    @Test
+    void unassignMandorClearsMandorAndPublishesEvent() {
+        Plantation plantation = new Plantation();
+        plantation.setId(1L);
+        plantation.setMandorId("mandor-1");
+
+        when(plantationRepository.findById(1L)).thenReturn(Optional.of(plantation));
+        when(plantationRepository.save(plantation)).thenReturn(plantation);
+
+        Plantation result = plantationService.unassignMandor(1L);
+
+        assertNull(result.getMandorId());
+        verify(plantationRepository).save(plantation);
+        verify(eventPublisher).publishMandorUnassigned(1L, "mandor-1");
+    }
+
+    @Test
+    void assignSupirAddsSupirAndPublishesEvent() {
+        Plantation plantation = new Plantation();
+        plantation.setId(1L);
+
+        when(plantationRepository.findById(1L)).thenReturn(Optional.of(plantation));
+        when(plantationRepository.save(plantation)).thenReturn(plantation);
+
+        Plantation result = plantationService.assignSupir(1L, "supir-1");
+
+        assertTrue(result.getSupirIds().contains("supir-1"));
+        verify(plantationRepository).save(plantation);
+        verify(eventPublisher).publishSupirAssigned(1L, "supir-1");
+    }
+
+    @Test
+    void unassignSupirRemovesSupirAndPublishesEvent() {
+        Plantation plantation = new Plantation();
+        plantation.setId(1L);
+        plantation.addSupir("supir-1");
+
+        when(plantationRepository.findById(1L)).thenReturn(Optional.of(plantation));
+        when(plantationRepository.save(plantation)).thenReturn(plantation);
+
+        Plantation result = plantationService.unassignSupir(1L, "supir-1");
+
+        assertFalse(result.getSupirIds().contains("supir-1"));
+        verify(plantationRepository).save(plantation);
+        verify(eventPublisher).publishSupirUnassigned(1L, "supir-1");
+    }
+
+    @Test
+    void getSupirsByPlantationReturnsAssignedSupirs() {
+        Plantation plantation = new Plantation();
+        plantation.addSupir("supir-1");
+
+        when(plantationRepository.findById(1L)).thenReturn(Optional.of(plantation));
+
+        assertEquals(java.util.Set.of("supir-1"), plantationService.getSupirsByPlantation(1L));
     }
 }
