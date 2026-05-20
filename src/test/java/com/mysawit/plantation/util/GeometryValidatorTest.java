@@ -29,6 +29,16 @@ class GeometryValidatorTest {
     }
 
     @Test
+    void isSquareRejectsNullCoordinateValues() {
+        assertFalse(geometryValidator.isSquare(List.of(
+                new Coordinate(null, 0.0),
+                new Coordinate(0.0, 1.0),
+                new Coordinate(1.0, 1.0),
+                new Coordinate(1.0, 0.0)
+        )));
+    }
+
+    @Test
     void createPolygonRejectsWrongSize() {
         IllegalArgumentException exception = assertThrows(
                 IllegalArgumentException.class,

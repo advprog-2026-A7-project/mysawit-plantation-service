@@ -4,7 +4,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mysawit.plantation.dto.AssignMandorRequest;
 import com.mysawit.plantation.dto.AssignSupirRequest;
 import com.mysawit.plantation.dto.CreatePlantationRequest;
+import com.mysawit.plantation.dto.SupirResponse;
 import com.mysawit.plantation.dto.TransferMandorRequest;
+import com.mysawit.plantation.dto.TransferSupirRequest;
 import com.mysawit.plantation.dto.UpdatePlantationRequest;
 import com.mysawit.plantation.exception.PlantationNotFoundException;
 import com.mysawit.plantation.model.Plantation;
@@ -101,7 +103,7 @@ class PlantationControllerWebMvcTest {
 
     @Test
     void getAllPlantations_Returns200AndList() throws Exception {
-        when(plantationService.getAllPlantations()).thenReturn(List.of(samplePlantation));
+        when(plantationService.searchPlantations(null, null)).thenReturn(List.of(samplePlantation));
 
         mockMvc.perform(get("/api/plantations"))
                 .andExpect(status().isOk())
@@ -110,6 +112,18 @@ class PlantationControllerWebMvcTest {
                 .andExpect(jsonPath("$[0].id", is(1)))
                 .andExpect(jsonPath("$[0].code", is("PLT-12345678")))
                 .andExpect(jsonPath("$[0].name", is("Test Plantation")));
+    }
+
+    @Test
+    void getPlantations_WithNameAndCodeFilters_Returns200AndList() throws Exception {
+        when(plantationService.searchPlantations("Test", "PLT")).thenReturn(List.of(samplePlantation));
+
+        mockMvc.perform(get("/api/plantations")
+                        .param("name", "Test")
+                        .param("code", "PLT"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(1)))
+                .andExpect(jsonPath("$[0].code", is("PLT-12345678")));
     }
 
     @Test
@@ -293,6 +307,19 @@ class PlantationControllerWebMvcTest {
     }
 
     @Test
+    void getSupirDetailsByPlantation_ReturnsFilteredDetails() throws Exception {
+        when(plantationService.getSupirDetailsByPlantation(1L, "Budi"))
+                .thenReturn(List.of(new SupirResponse("supir-1", "Budi Driver")));
+
+        mockMvc.perform(get("/api/plantations/1/supirs/details")
+                        .param("name", "Budi"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(1)))
+                .andExpect(jsonPath("$[0].id", is("supir-1")))
+                .andExpect(jsonPath("$[0].name", is("Budi Driver")));
+    }
+
+    @Test
     void assignSupir_Returns200AndEntity() throws Exception {
         AssignSupirRequest request = new AssignSupirRequest();
         request.setSupirId("supir-1");
@@ -320,5 +347,20 @@ class PlantationControllerWebMvcTest {
         mockMvc.perform(delete("/api/plantations/1/supirs/supir-1"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id", is(1)));
+    }
+
+    @Test
+    void transferSupir_Returns200() throws Exception {
+        TransferSupirRequest request = new TransferSupirRequest();
+        request.setSupirId("supir-1");
+        request.setFromPlantationId(1L);
+        request.setToPlantationId(2L);
+
+        doNothing().when(plantationService).transferSupir("supir-1", 1L, 2L);
+
+        mockMvc.perform(put("/api/plantations/transfer-supir")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk());
     }
 }
