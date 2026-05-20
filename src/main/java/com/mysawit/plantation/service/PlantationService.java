@@ -25,19 +25,22 @@ public class PlantationService {
     private final PlantationGeometryService plantationGeometryService;
     private final MandorAssignmentService mandorAssignmentService;
     private final UniqueConstraintInspector uniqueConstraintInspector;
+    private final PlantationEventPublisher eventPublisher;
 
     public PlantationService(PlantationRepository plantationRepository,
                              PlantationMapper plantationMapper,
                              PlantationCodeGenerator plantationCodeGenerator,
                              PlantationGeometryService plantationGeometryService,
                              MandorAssignmentService mandorAssignmentService,
-                             UniqueConstraintInspector uniqueConstraintInspector) {
+                             UniqueConstraintInspector uniqueConstraintInspector,
+                             PlantationEventPublisher eventPublisher) {
         this.plantationRepository = plantationRepository;
         this.plantationMapper = plantationMapper;
         this.plantationCodeGenerator = plantationCodeGenerator;
         this.plantationGeometryService = plantationGeometryService;
         this.mandorAssignmentService = mandorAssignmentService;
         this.uniqueConstraintInspector = uniqueConstraintInspector;
+        this.eventPublisher = eventPublisher;
     }
 
     public List<Plantation> getAllPlantations() {
@@ -87,11 +90,42 @@ public class PlantationService {
     }
 
     public Plantation assignMandor(Long id, String mandorId) {
-        return mandorAssignmentService.assignMandor(id, mandorId);
+        Plantation result = mandorAssignmentService.assignMandor(id, mandorId);
+        eventPublisher.publishMandorAssigned(id, mandorId);
+        return result;
+    }
+
+    public Plantation unassignMandor(Long id) {
+        Plantation plantation = getPlantationById(id);
+        String previousMandorId = plantation.getMandorId();
+        plantation.setMandorId(null);
+        Plantation result = plantationRepository.save(plantation);
+        eventPublisher.publishMandorUnassigned(id, previousMandorId);
+        return result;
     }
 
     public void transferMandor(String mandorId, Long fromPlantationId, Long toPlantationId) {
         mandorAssignmentService.transferMandor(mandorId, fromPlantationId, toPlantationId);
+    }
+
+    public Plantation assignSupir(Long id, String supirId) {
+        Plantation plantation = getPlantationById(id);
+        plantation.addSupir(supirId);
+        Plantation result = plantationRepository.save(plantation);
+        eventPublisher.publishSupirAssigned(id, supirId);
+        return result;
+    }
+
+    public Plantation unassignSupir(Long id, String supirId) {
+        Plantation plantation = getPlantationById(id);
+        plantation.removeSupir(supirId);
+        Plantation result = plantationRepository.save(plantation);
+        eventPublisher.publishSupirUnassigned(id, supirId);
+        return result;
+    }
+
+    public java.util.Set<String> getSupirsByPlantation(Long id) {
+        return getPlantationById(id).getSupirIds();
     }
 
     private Plantation saveWithCodeRetry(CreatePlantationRequest request) {

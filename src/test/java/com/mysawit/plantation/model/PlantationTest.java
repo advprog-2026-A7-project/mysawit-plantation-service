@@ -3,6 +3,8 @@ package com.mysawit.plantation.model;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -24,8 +26,15 @@ class PlantationTest {
         plantation.setPlantDate(plantDate);
         plantation.setCreatedAt(createdAt);
         plantation.setUpdatedAt(updatedAt);
+        plantation.setCode("PLT-12345678");
+        plantation.setMandorId("mandor-1");
+        plantation.setCoordinates(List.of(new Coordinate(0.0, 0.0)));
+        plantation.setSupirIds(new java.util.HashSet<>(Set.of("supir-1")));
+        plantation.addSupir("supir-2");
+        plantation.removeSupir("supir-1");
 
         assertEquals(1L, plantation.getId());
+        assertEquals("PLT-12345678", plantation.getCode());
         assertEquals("Plantation", plantation.getName());
         assertEquals("Riau", plantation.getLocation());
         assertEquals(100.0, plantation.getArea());
@@ -34,6 +43,9 @@ class PlantationTest {
         assertEquals(plantDate, plantation.getPlantDate());
         assertEquals(createdAt, plantation.getCreatedAt());
         assertEquals(updatedAt, plantation.getUpdatedAt());
+        assertEquals("mandor-1", plantation.getMandorId());
+        assertEquals(List.of(new Coordinate(0.0, 0.0)), plantation.getCoordinates());
+        assertEquals(Set.of("supir-2"), plantation.getSupirIds());
     }
 
 
