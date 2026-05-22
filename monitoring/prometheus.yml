@@ -7,6 +7,7 @@ scrape_configs:
     static_configs:
       - targets: ["localhost:9090"]
 
+  # Production CD container (single instance, host networking on 8082)
   - job_name: mysawit-plantation-service
     metrics_path: /actuator/prometheus
     scrape_interval: 10s
@@ -15,15 +16,27 @@ scrape_configs:
           - host.docker.internal:8082
         labels:
           service: mysawit-plantation-service
+          slot: prod
 
-  # Uncomment to also scrape the identity-service from this same
-  # Prometheus instance (useful when you want one Grafana for both).
-  # The identity service runs on host port 8081 by default.
-  # - job_name: mysawit-identity-service
-  #   metrics_path: /actuator/prometheus
-  #   scrape_interval: 10s
-  #   static_configs:
-  #     - targets:
-  #         - host.docker.internal:8081
-  #       labels:
-  #         service: mysawit-identity-service
+  # Stable LB replicas (port mapping mode)
+  - job_name: mysawit-plantation-stable
+    metrics_path: /actuator/prometheus
+    scrape_interval: 10s
+    static_configs:
+      - targets:
+          - host.docker.internal:8182
+          - host.docker.internal:8192
+        labels:
+          service: mysawit-plantation-service
+          slot: stable
+
+  # Canary replica
+  - job_name: mysawit-plantation-canary
+    metrics_path: /actuator/prometheus
+    scrape_interval: 10s
+    static_configs:
+      - targets:
+          - host.docker.internal:8282
+        labels:
+          service: mysawit-plantation-service
+          slot: canary
