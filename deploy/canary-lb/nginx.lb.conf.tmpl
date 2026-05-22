@@ -1,0 +1,33 @@
+worker_processes auto;
+events { worker_connections 1024; }
+
+http {
+  # Load-balance across two "stable" replicas — least_conn favours the idle one.
+  upstream stable_pool {
+    least_conn;
+    server host.docker.internal:8182 max_fails=3 fail_timeout=10s;
+    server host.docker.internal:8192 max_fails=3 fail_timeout=10s;
+  }
+
+  log_format lb '$remote_addr - $upstream_addr - $status - $request_time s - $request';
+  access_log /var/log/nginx/access.log lb;
+
+  server {
+    listen 8089;
+    server_name _;
+
+    location = /__backend {
+      add_header Content-Type text/plain;
+      return 200 "stable_pool (no canary)\n";
+    }
+
+    location / {
+      proxy_pass http://stable_pool;
+      proxy_set_header Host $host;
+      proxy_set_header X-Real-IP $remote_addr;
+      proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+      proxy_connect_timeout 5s;
+      proxy_read_timeout 60s;
+    }
+  }
+}

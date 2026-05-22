@@ -1,0 +1,19 @@
+# Canary + Load Balancing demo stack for plantation-service.
+# Runs an nginx reverse-proxy on port 8089.
+# Stable replicas + canary container itself are managed by separate scripts
+# (lb-up.sh, canary-deploy.sh) using plain docker run, so we can adjust
+# the pool independently from the proxy.
+#
+# Coexists with the production CD container on port 8082 — independent ports.
+
+services:
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: mysawit-plantation-nginx
+    restart: unless-stopped
+    ports:
+      - "8089:8089"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

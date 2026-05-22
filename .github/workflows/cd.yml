@@ -147,8 +147,14 @@ jobs:
           cp docker-compose.monitoring.yml release/docker-compose.monitoring.yml
           cp -R monitoring release/monitoring
           install -m 644 "${jar_candidates[0]}" release/build/libs/app.jar
-          cp scripts/deploy-ec2.sh release/scripts/deploy-ec2.sh
-          chmod 755 release/scripts/deploy-ec2.sh
+          # Bring all scripts (deploy + canary/lb) and the canary-lb nginx templates.
+          # Use src/. → dest/ form so files land INSIDE release/scripts, not in a nested subdir.
+          cp -R scripts/. release/scripts/
+          if [ -d deploy ]; then
+            mkdir -p release/deploy
+            cp -R deploy/. release/deploy/
+          fi
+          chmod 755 release/scripts/*.sh
 
           {
             printf 'SPRING_PROFILES_ACTIVE=prod\n'
