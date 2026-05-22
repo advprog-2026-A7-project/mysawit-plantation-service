@@ -1,7 +1,9 @@
 package com.mysawit.plantation.service;
 
+import com.mysawit.plantation.client.IdentityServiceClient;
 import com.mysawit.plantation.dto.CreatePlantationRequest;
 import com.mysawit.plantation.dto.PlantationRequest;
+import com.mysawit.plantation.dto.SupirResponse;
 import com.mysawit.plantation.dto.UpdatePlantationRequest;
 import com.mysawit.plantation.exception.PlantationNotFoundException;
 import com.mysawit.plantation.model.Plantation;
@@ -32,6 +34,9 @@ class PlantationServiceTest {
     @Mock
     private PlantationEventPublisher eventPublisher;
 
+    @Mock
+    private IdentityServiceClient identityServiceClient;
+
     private final GeometryValidator geometryValidator = new GeometryValidator();
 
     private PlantationService plantationService;
@@ -52,7 +57,8 @@ class PlantationServiceTest {
                 plantationGeometryService,
                 mandorAssignmentService,
                 uniqueConstraintInspector,
-                eventPublisher
+                eventPublisher,
+                identityServiceClient
         );
     }
 
@@ -63,6 +69,20 @@ class PlantationServiceTest {
         List<Plantation> result = plantationService.getAllPlantations();
 
         assertEquals(2, result.size());
+    }
+
+    @Test
+    void searchPlantationsDelegatesByProvidedFilters() {
+        when(plantationRepository.findByNameContainingIgnoreCase("Alpha")).thenReturn(List.of(new Plantation()));
+        when(plantationRepository.findByCodeContainingIgnoreCase("PLT")).thenReturn(List.of(new Plantation(), new Plantation()));
+        when(plantationRepository.findByNameContainingIgnoreCaseAndCodeContainingIgnoreCase("Alpha", "PLT"))
+                .thenReturn(List.of(new Plantation(), new Plantation(), new Plantation()));
+        when(plantationRepository.findAll()).thenReturn(List.of());
+
+        assertEquals(1, plantationService.searchPlantations(" Alpha ", null).size());
+        assertEquals(2, plantationService.searchPlantations(null, " PLT ").size());
+        assertEquals(3, plantationService.searchPlantations(" Alpha ", " PLT ").size());
+        assertTrue(plantationService.searchPlantations(" ", "").isEmpty());
     }
 
     @Test
@@ -483,6 +503,8 @@ class PlantationServiceTest {
         assertEquals("mandor-1", target.getMandorId());
         verify(plantationRepository).save(source);
         verify(plantationRepository).save(target);
+        verify(eventPublisher).publishMandorUnassigned(1L, "mandor-1");
+        verify(eventPublisher).publishMandorAssigned(2L, "mandor-1");
     }
 
     @Test
@@ -558,6 +580,7 @@ class PlantationServiceTest {
         plantation.setId(1L);
 
         when(plantationRepository.findById(1L)).thenReturn(Optional.of(plantation));
+        when(plantationRepository.findBySupirIdsContaining("supir-1")).thenReturn(List.of());
         when(plantationRepository.save(plantation)).thenReturn(plantation);
 
         Plantation result = plantationService.assignSupir(1L, "supir-1");
@@ -565,6 +588,27 @@ class PlantationServiceTest {
         assertTrue(result.getSupirIds().contains("supir-1"));
         verify(plantationRepository).save(plantation);
         verify(eventPublisher).publishSupirAssigned(1L, "supir-1");
+    }
+
+    @Test
+    void assignSupirThrowsIfAlreadyAssignedElsewhere() {
+        Plantation current = new Plantation();
+        current.setId(1L);
+        Plantation other = new Plantation();
+        other.setId(2L);
+        other.addSupir("supir-1");
+
+        when(plantationRepository.findById(1L)).thenReturn(Optional.of(current));
+        when(plantationRepository.findBySupirIdsContaining("supir-1")).thenReturn(List.of(other));
+
+        IllegalStateException exception = assertThrows(
+                IllegalStateException.class,
+                () -> plantationService.assignSupir(1L, "supir-1")
+        );
+
+        assertTrue(exception.getMessage().contains("already assigned"));
+        verify(plantationRepository, never()).save(any(Plantation.class));
+        verifyNoInteractions(eventPublisher);
     }
 
     @Test
@@ -584,6 +628,21 @@ class PlantationServiceTest {
     }
 
     @Test
+    void unassignSupirDoesNotPublishWhenSupirWasNotAssigned() {
+        Plantation plantation = new Plantation();
+        plantation.setId(1L);
+
+        when(plantationRepository.findById(1L)).thenReturn(Optional.of(plantation));
+        when(plantationRepository.save(plantation)).thenReturn(plantation);
+
+        Plantation result = plantationService.unassignSupir(1L, "supir-1");
+
+        assertFalse(result.getSupirIds().contains("supir-1"));
+        verify(plantationRepository).save(plantation);
+        verify(eventPublisher, never()).publishSupirUnassigned(anyLong(), anyString());
+    }
+
+    @Test
     void getSupirsByPlantationReturnsAssignedSupirs() {
         Plantation plantation = new Plantation();
         plantation.addSupir("supir-1");
@@ -591,5 +650,161 @@ class PlantationServiceTest {
         when(plantationRepository.findById(1L)).thenReturn(Optional.of(plantation));
 
         assertEquals(java.util.Set.of("supir-1"), plantationService.getSupirsByPlantation(1L));
+    }
+
+    @Test
+    void getSupirDetailsByPlantationFiltersByName() {
+        Plantation plantation = new Plantation();
+        plantation.addSupir("supir-2");
+        plantation.addSupir("supir-1");
+
+        when(plantationRepository.findById(1L)).thenReturn(Optional.of(plantation));
+        when(identityServiceClient.getUserName("supir-1")).thenReturn("Budi Driver");
+        when(identityServiceClient.getUserName("supir-2")).thenReturn("Sari Driver");
+
+        List<SupirResponse> result = plantationService.getSupirDetailsByPlantation(1L, "budi");
+
+        assertEquals(1, result.size());
+        assertEquals("supir-1", result.get(0).id());
+        assertEquals("Budi Driver", result.get(0).name());
+    }
+
+    @Test
+    void transferSupirMovesSupirAndPublishesEvents() {
+        Plantation source = new Plantation();
+        source.setId(1L);
+        source.addSupir("supir-1");
+        Plantation target = new Plantation();
+        target.setId(2L);
+
+        when(plantationRepository.findById(1L)).thenReturn(Optional.of(source));
+        when(plantationRepository.findById(2L)).thenReturn(Optional.of(target));
+        when(plantationRepository.save(source)).thenReturn(source);
+        when(plantationRepository.save(target)).thenReturn(target);
+
+        plantationService.transferSupir("supir-1", 1L, 2L);
+
+        assertFalse(source.getSupirIds().contains("supir-1"));
+        assertTrue(target.getSupirIds().contains("supir-1"));
+        verify(eventPublisher).publishSupirUnassigned(1L, "supir-1");
+        verify(eventPublisher).publishSupirAssigned(2L, "supir-1");
+    }
+
+    @Test
+    void transferSupirRejectsSameSourceAndTarget() {
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> plantationService.transferSupir("supir-1", 1L, 1L)
+        );
+
+        assertTrue(exception.getMessage().contains("must be different"));
+        verifyNoInteractions(plantationRepository);
+    }
+
+    @Test
+    void transferSupirThrowsIfSourceDoesNotContainSupir() {
+        Plantation source = new Plantation();
+        source.setId(1L);
+        Plantation target = new Plantation();
+        target.setId(2L);
+
+        when(plantationRepository.findById(1L)).thenReturn(Optional.of(source));
+        when(plantationRepository.findById(2L)).thenReturn(Optional.of(target));
+
+        IllegalStateException exception = assertThrows(
+                IllegalStateException.class,
+                () -> plantationService.transferSupir("supir-1", 1L, 2L)
+        );
+
+        assertTrue(exception.getMessage().contains("not assigned"));
+        verify(plantationRepository, never()).save(any(Plantation.class));
+    }
+
+    @Test
+    void syncAssignmentForUpdatedUserReturnsForBlankUserId() {
+        plantationService.syncAssignmentForUpdatedUser(" ", "MANDOR");
+
+        verifyNoInteractions(plantationRepository);
+    }
+
+    @Test
+    void syncAssignmentForUpdatedMandorRepublishesCurrentAssignment() {
+        Plantation plantation = new Plantation();
+        plantation.setId(1L);
+        plantation.setMandorId("mandor-1");
+
+        when(plantationRepository.findByMandorId("mandor-1")).thenReturn(Optional.of(plantation));
+        when(plantationRepository.findBySupirIdsContaining("mandor-1")).thenReturn(List.of());
+
+        plantationService.syncAssignmentForUpdatedUser("mandor-1", " MANDOR ");
+
+        verify(eventPublisher).publishMandorAssigned(1L, "mandor-1");
+        verify(plantationRepository, never()).save(any(Plantation.class));
+    }
+
+    @Test
+    void syncAssignmentForUpdatedSupirRepublishesCurrentAssignment() {
+        Plantation plantation = new Plantation();
+        plantation.setId(2L);
+        plantation.addSupir("supir-1");
+
+        when(plantationRepository.findByMandorId("supir-1")).thenReturn(Optional.empty());
+        when(plantationRepository.findBySupirIdsContaining("supir-1")).thenReturn(List.of(plantation));
+
+        plantationService.syncAssignmentForUpdatedUser("supir-1", "SUPIR");
+
+        verify(eventPublisher).publishSupirAssigned(2L, "supir-1");
+        verify(plantationRepository, never()).save(any(Plantation.class));
+    }
+
+    @Test
+    void syncAssignmentForUpdatedNonWorkerRemovesAssignments() {
+        Plantation mandorPlantation = new Plantation();
+        mandorPlantation.setId(1L);
+        mandorPlantation.setMandorId("user-1");
+
+        Plantation supirPlantation = new Plantation();
+        supirPlantation.setId(2L);
+        supirPlantation.addSupir("user-1");
+
+        when(plantationRepository.findByMandorId("user-1")).thenReturn(Optional.of(mandorPlantation));
+        when(plantationRepository.findBySupirIdsContaining("user-1")).thenReturn(List.of(supirPlantation));
+        when(plantationRepository.save(any(Plantation.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        plantationService.syncAssignmentForUpdatedUser("user-1", "ADMIN");
+
+        assertNull(mandorPlantation.getMandorId());
+        assertFalse(supirPlantation.getSupirIds().contains("user-1"));
+        verify(eventPublisher).publishMandorUnassigned(1L, "user-1");
+        verify(eventPublisher).publishSupirUnassigned(2L, "user-1");
+    }
+
+    @Test
+    void removeAssignmentsForDeletedUserReturnsForBlankUserId() {
+        plantationService.removeAssignmentsForDeletedUser("");
+
+        verifyNoInteractions(plantationRepository);
+    }
+
+    @Test
+    void removeAssignmentsForDeletedUserClearsMandorAndSupirAssignments() {
+        Plantation mandorPlantation = new Plantation();
+        mandorPlantation.setId(1L);
+        mandorPlantation.setMandorId("user-1");
+
+        Plantation supirPlantation = new Plantation();
+        supirPlantation.setId(2L);
+        supirPlantation.addSupir("user-1");
+
+        when(plantationRepository.findByMandorId("user-1")).thenReturn(Optional.of(mandorPlantation));
+        when(plantationRepository.findBySupirIdsContaining("user-1")).thenReturn(List.of(supirPlantation));
+        when(plantationRepository.save(any(Plantation.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        plantationService.removeAssignmentsForDeletedUser("user-1");
+
+        assertNull(mandorPlantation.getMandorId());
+        assertFalse(supirPlantation.getSupirIds().contains("user-1"));
+        verify(eventPublisher).publishMandorUnassigned(1L, "user-1");
+        verify(eventPublisher).publishSupirUnassigned(2L, "user-1");
     }
 }
