@@ -19,6 +19,7 @@ DEPLOY_LOG="${DEPLOY_LOG:-${APP_HOME}/deploy.log}"
 NEW_IMAGE="${APP_NAME}:${IMAGE_TAG}"
 PREVIOUS_IMAGE_ID=""
 ROLLBACK_ATTEMPTED=0
+DEPLOY_MONITORING="${DEPLOY_MONITORING:-1}"
 
 mkdir -p "$APP_HOME" "$SHARED_DIR" "$RELEASES_DIR"
 touch "$DEPLOY_LOG"
@@ -33,6 +34,21 @@ docker_cmd() {
     docker "$@"
   else
     sudo docker "$@"
+  fi
+}
+
+compose_cmd() {
+  if docker compose version >/dev/null 2>&1; then
+    docker compose "$@"
+  elif command -v docker-compose >/dev/null 2>&1; then
+    docker-compose "$@"
+  elif sudo docker compose version >/dev/null 2>&1; then
+    sudo docker compose "$@"
+  elif command -v docker-compose >/dev/null 2>&1; then
+    sudo docker-compose "$@"
+  else
+    log "Docker Compose is not installed; skipping monitoring stack startup"
+    return 127
   fi
 }
 
@@ -145,6 +161,19 @@ for attempt in $(seq 1 36); do
 done
 
 ln -sfn "$RELEASE_DIR" "$CURRENT_LINK"
+
+if [ "$DEPLOY_MONITORING" = "1" ] && [ -f "$RELEASE_DIR/docker-compose.monitoring.yml" ]; then
+  cp "$RELEASE_DIR/docker-compose.monitoring.yml" "$APP_HOME/docker-compose.monitoring.yml"
+  rm -rf "$APP_HOME/monitoring"
+  cp -R "$RELEASE_DIR/monitoring" "$APP_HOME/monitoring"
+
+  log "Starting monitoring stack"
+  if ! (cd "$APP_HOME" && compose_cmd -f docker-compose.monitoring.yml up -d); then
+    log "Monitoring stack startup skipped or failed; application deploy remains successful"
+  fi
+else
+  log "Monitoring deploy disabled or compose file missing; skipping"
+fi
 
 log "Listening sockets for port ${APP_PORT}"
 ss -ltn "( sport = :${APP_PORT} )" || true
