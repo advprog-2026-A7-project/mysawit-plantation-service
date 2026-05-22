@@ -81,6 +81,9 @@ public class GeometryValidator {
     }
 
     private boolean isWithinWorldRange(Coordinate coordinate) {
+        if (coordinate == null || coordinate.getLatitude() == null || coordinate.getLongitude() == null) {
+            return false;
+        }
         double latitude = coordinate.getLatitude();
         double longitude = coordinate.getLongitude();
         return latitude >= LATITUDE_MIN && latitude <= LATITUDE_MAX

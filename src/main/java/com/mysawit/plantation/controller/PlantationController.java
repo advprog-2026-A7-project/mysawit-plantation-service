@@ -4,7 +4,9 @@ import com.mysawit.plantation.dto.AssignMandorRequest;
 import com.mysawit.plantation.dto.AssignSupirRequest;
 import com.mysawit.plantation.dto.CreatePlantationRequest;
 import com.mysawit.plantation.dto.PlantationResponse;
+import com.mysawit.plantation.dto.SupirResponse;
 import com.mysawit.plantation.dto.TransferMandorRequest;
+import com.mysawit.plantation.dto.TransferSupirRequest;
 import com.mysawit.plantation.dto.UpdatePlantationRequest;
 import com.mysawit.plantation.model.Plantation;
 import com.mysawit.plantation.service.PlantationService;
@@ -32,8 +34,10 @@ public class PlantationController {
 
     @PreAuthorize("hasRole('ADMIN')")
     @GetMapping
-    public ResponseEntity<List<PlantationResponse>> getAllPlantations() {
-        List<PlantationResponse> responses = plantationService.getAllPlantations().stream()
+    public ResponseEntity<List<PlantationResponse>> getPlantations(
+            @RequestParam(required = false) String name,
+            @RequestParam(required = false) String code) {
+        List<PlantationResponse> responses = plantationService.searchPlantations(name, code).stream()
                 .map(PlantationResponse::new)
                 .collect(Collectors.toList());
         return ResponseEntity.ok(responses);
@@ -125,6 +129,14 @@ public class PlantationController {
         return ResponseEntity.ok(plantationService.getSupirsByPlantation(id));
     }
 
+    @PreAuthorize("hasRole('ADMIN') or hasRole('MANDOR')")
+    @GetMapping("/{id}/supirs/details")
+    public ResponseEntity<List<SupirResponse>> getSupirDetailsByPlantation(
+            @PathVariable Long id,
+            @RequestParam(required = false) String name) {
+        return ResponseEntity.ok(plantationService.getSupirDetailsByPlantation(id, name));
+    }
+
     /**
      * Assign supir truk ke kebun.
      * Constraint docs: supir harus ditempatkan di kebun sebelum bisa melakukan aksi.
@@ -150,5 +162,17 @@ public class PlantationController {
             @PathVariable String supirId) {
         Plantation plantation = plantationService.unassignSupir(id, supirId);
         return ResponseEntity.ok(new PlantationResponse(plantation));
+    }
+
+    @PreAuthorize("hasRole('ADMIN')")
+    @PutMapping("/transfer-supir")
+    public ResponseEntity<Void> transferSupir(
+            @Valid @RequestBody TransferSupirRequest request) {
+        plantationService.transferSupir(
+                request.getSupirId(),
+                request.getFromPlantationId(),
+                request.getToPlantationId()
+        );
+        return ResponseEntity.ok().build();
     }
 }
