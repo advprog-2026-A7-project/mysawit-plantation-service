@@ -59,6 +59,15 @@ public class PlantationController {
         return ResponseEntity.ok(responses);
     }
 
+    @PreAuthorize("hasRole('ADMIN') or hasRole('MANDOR') or hasRole('BURUH')")
+    @GetMapping("/mandor/{mandorId}")
+    public ResponseEntity<List<PlantationResponse>> getPlantationsByMandor(@PathVariable String mandorId) {
+        List<PlantationResponse> responses = plantationService.getPlantationsByMandor(mandorId).stream()
+                .map(PlantationResponse::new)
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(responses);
+    }
+
     @PreAuthorize("hasRole('ADMIN')")
     @PostMapping
     public ResponseEntity<PlantationResponse> createPlantation(

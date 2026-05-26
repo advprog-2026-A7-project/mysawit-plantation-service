@@ -40,6 +40,7 @@ class PlantationMapperTest {
         CreatePlantationRequest result = mapper.toCreateRequest(request);
 
         assertEquals(request.getName(), result.getName());
+        assertEquals(request.getCode(), result.getCode());
         assertEquals(request.getLocation(), result.getLocation());
         assertEquals(request.getArea(), result.getArea());
         assertEquals(request.getOwnerId(), result.getOwnerId());
@@ -122,6 +123,7 @@ class PlantationMapperTest {
 
     private PlantationRequest sampleLegacyRequest() {
         PlantationRequest request = new PlantationRequest();
+        request.setCode("KB-A-001");
         request.setName("Plantation");
         request.setLocation("Riau");
         request.setArea(10.0);

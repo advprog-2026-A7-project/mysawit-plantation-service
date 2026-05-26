@@ -71,6 +71,7 @@ class PlantationControllerWebMvcTest {
         samplePlantation.setArea(150.5);
         samplePlantation.setDescription("Description X");
         samplePlantation.setOwnerId("Owner-1");
+        samplePlantation.setMandorId("mandor-1");
         samplePlantation.setPlantDate(LocalDateTime.of(2025, 1, 1, 0, 0));
 
         validCreateRequest = new CreatePlantationRequest();
@@ -154,6 +155,18 @@ class PlantationControllerWebMvcTest {
                 .andExpect(content().contentType(MediaType.APPLICATION_JSON))
                 .andExpect(jsonPath("$", hasSize(1)))
                 .andExpect(jsonPath("$[0].ownerId", is("Owner-1")));
+    }
+
+    @Test
+    @WithMockUser(username = "mandor-1", roles = "MANDOR")
+    void getPlantationsByMandor_Returns200AndListForMandor() throws Exception {
+        when(plantationService.getPlantationsByMandor("mandor-1")).thenReturn(List.of(samplePlantation));
+
+        mockMvc.perform(get("/api/plantations/mandor/mandor-1"))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$", hasSize(1)))
+                .andExpect(jsonPath("$[0].mandorId", is("mandor-1")));
     }
 
     @Test
