@@ -85,6 +85,10 @@ public class PlantationService {
         return getPlantationsByOwner(ownerId);
     }
 
+    public List<Plantation> getPlantationsByMandor(String mandorId) {
+        return plantationRepository.findAllByMandorId(mandorId);
+    }
+
     public Plantation createPlantation(CreatePlantationRequest request) {
         plantationGeometryService.validateGeometryAndOverlap(request.getCoordinates(), null);
         return saveWithCodeRetry(request);
@@ -250,6 +254,18 @@ public class PlantationService {
     }
 
     private Plantation saveWithCodeRetry(CreatePlantationRequest request) {
+        if (hasText(request.getCode())) {
+            try {
+                return plantationRepository.save(
+                        plantationMapper.buildPlantation(request, request.getCode().trim()));
+            } catch (DataIntegrityViolationException exception) {
+                if (uniqueConstraintInspector.isCodeUniqueViolation(exception)) {
+                    throw new IllegalArgumentException("Plantation code already exists");
+                }
+                throw exception;
+            }
+        }
+
         DataIntegrityViolationException lastCodeCollisionException = null;
 
         for (int attempt = 1; attempt <= MAX_CODE_GENERATION_RETRIES; attempt++) {

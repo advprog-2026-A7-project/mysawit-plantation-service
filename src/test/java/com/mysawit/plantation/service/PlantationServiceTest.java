@@ -122,6 +122,13 @@ class PlantationServiceTest {
     }
 
     @Test
+    void getPlantationsByMandorReturnsAssignedPlantations() {
+        when(plantationRepository.findAllByMandorId("mandor-1")).thenReturn(List.of(new Plantation()));
+
+        assertEquals(1, plantationService.getPlantationsByMandor("mandor-1").size());
+    }
+
+    @Test
     void createPlantationSavesEntityWithGeneratedCode() {
         CreatePlantationRequest request = sampleCreateRequest();
         when(plantationRepository.save(any(Plantation.class))).thenAnswer(inv -> inv.getArgument(0));
@@ -141,6 +148,52 @@ class PlantationServiceTest {
         assertEquals("desc", saved.getDescription());
         assertEquals(LocalDateTime.of(2026, 1, 1, 0, 0), saved.getPlantDate());
         assertEquals(saved.getCode(), result.getCode());
+    }
+
+    @Test
+    void createPlantationUsesRequestedCodeWhenProvided() {
+        CreatePlantationRequest request = sampleCreateRequest();
+        request.setCode("KB-A-001");
+        when(plantationRepository.save(any(Plantation.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        Plantation result = plantationService.createPlantation(request);
+
+        assertEquals("KB-A-001", result.getCode());
+        verify(plantationRepository, times(1)).save(any(Plantation.class));
+    }
+
+    @Test
+    void createPlantationWithRequestedDuplicateCodeReturnsClearError() {
+        CreatePlantationRequest request = sampleCreateRequest();
+        request.setCode("KB-A-001");
+        DataIntegrityViolationException collision = new DataIntegrityViolationException(
+                "duplicate key value violates unique constraint plantations_code_key"
+        );
+        when(plantationRepository.save(any(Plantation.class))).thenThrow(collision);
+
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> plantationService.createPlantation(request)
+        );
+
+        assertEquals("Plantation code already exists", exception.getMessage());
+        verify(plantationRepository, times(1)).save(any(Plantation.class));
+    }
+
+    @Test
+    void createPlantationWithRequestedCodeRethrowsNonCodeConstraintViolation() {
+        CreatePlantationRequest request = sampleCreateRequest();
+        request.setCode("KB-A-001");
+        DataIntegrityViolationException nonCodeViolation = new DataIntegrityViolationException(
+                "duplicate key value violates unique constraint owner_id_key"
+        );
+        when(plantationRepository.save(any(Plantation.class))).thenThrow(nonCodeViolation);
+
+        assertSame(
+                nonCodeViolation,
+                assertThrows(DataIntegrityViolationException.class, () -> plantationService.createPlantation(request))
+        );
+        verify(plantationRepository, times(1)).save(any(Plantation.class));
     }
 
     @Test
