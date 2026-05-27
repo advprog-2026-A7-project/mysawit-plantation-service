@@ -14,6 +14,7 @@ class PlantationRequestTest {
         LocalDateTime plantDate = LocalDateTime.of(2026, 2, 1, 9, 30);
 
         request.setName("Plantation");
+        request.setCode("KB-A-001");
         request.setLocation("Riau");
         request.setArea(55.5);
         request.setOwnerId("1");
@@ -21,6 +22,7 @@ class PlantationRequestTest {
         request.setPlantDate(plantDate);
 
         assertEquals("Plantation", request.getName());
+        assertEquals("KB-A-001", request.getCode());
         assertEquals("Riau", request.getLocation());
         assertEquals(55.5, request.getArea());
         assertEquals("1", request.getOwnerId());

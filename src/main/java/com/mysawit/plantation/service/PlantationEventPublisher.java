@@ -2,14 +2,13 @@ package com.mysawit.plantation.service;
 
 import com.mysawit.plantation.client.IdentityServiceClient;
 import com.mysawit.plantation.config.RabbitMQConfig;
+import com.mysawit.plantation.event.PlantationAssignmentEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.OffsetDateTime;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -17,7 +16,7 @@ import java.util.UUID;
  * (harvest, shipment) can react without direct coupling.
  *
  * Event format matches PlantationAssignmentEvent in shipment-service:
- * { eventId, userId (UUID), name, role, plantationId (String/UUID), action, occurredAt }
+ * { eventId, userId (UUID), name, role, plantationId, action, occurredAt }
  */
 @Service
 public class PlantationEventPublisher {
@@ -41,46 +40,40 @@ public class PlantationEventPublisher {
     public void publishMandorAssigned(Long plantationId, String mandorId) {
         String name = identityServiceClient.getUserName(mandorId);
         publish(RabbitMQConfig.MANDOR_ASSIGNED_KEY,
-                buildEvent(mandorId, ROLE_MANDOR, toPlantationUuid(plantationId), ACTION_ASSIGNED, name));
+                buildEvent(mandorId, ROLE_MANDOR, toPlantationId(plantationId), ACTION_ASSIGNED, name));
     }
 
     public void publishMandorUnassigned(Long plantationId, String mandorId) {
         publish(RabbitMQConfig.MANDOR_UNASSIGNED_KEY,
-                buildEvent(mandorId, ROLE_MANDOR, toPlantationUuid(plantationId), ACTION_UNASSIGNED, null));
+                buildEvent(mandorId, ROLE_MANDOR, toPlantationId(plantationId), ACTION_UNASSIGNED, null));
     }
 
     public void publishSupirAssigned(Long plantationId, String supirId) {
         String name = identityServiceClient.getUserName(supirId);
         publish(RabbitMQConfig.SUPIR_ASSIGNED_KEY,
-                buildEvent(supirId, ROLE_SUPIR, toPlantationUuid(plantationId), ACTION_ASSIGNED, name));
+                buildEvent(supirId, ROLE_SUPIR, toPlantationId(plantationId), ACTION_ASSIGNED, name));
     }
 
     public void publishSupirUnassigned(Long plantationId, String supirId) {
         publish(RabbitMQConfig.SUPIR_UNASSIGNED_KEY,
-                buildEvent(supirId, ROLE_SUPIR, toPlantationUuid(plantationId), ACTION_UNASSIGNED, null));
+                buildEvent(supirId, ROLE_SUPIR, toPlantationId(plantationId), ACTION_UNASSIGNED, null));
     }
 
-    /**
-     * Converts Long plantation ID to zero-padded UUID string so it's consistent
-     * with how harvest service stores plantation_id (e.g. 2 → 00000000-0000-0000-0000-000000000002).
-     */
-    private String toPlantationUuid(Long id) {
-        return String.format("00000000-0000-0000-0000-%012d", id);
+    private String toPlantationId(Long id) {
+        return String.valueOf(id);
     }
 
-    private Map<String, Object> buildEvent(String userId, String role, String plantationId,
-                                           String action, String name) {
-        Map<String, Object> event = new HashMap<>();
-        event.put("eventId", UUID.randomUUID().toString());
-        event.put("userId", userId);
-        event.put("role", role);
-        event.put("plantationId", plantationId);
-        event.put("action", action);
-        event.put("occurredAt", OffsetDateTime.now().toString());
-        if (name != null) {
-            event.put("name", name);
-        }
-        return event;
+    private PlantationAssignmentEvent buildEvent(String userId, String role, String plantationId,
+                                                 String action, String name) {
+        return new PlantationAssignmentEvent(
+                UUID.randomUUID().toString(),
+                userId,
+                name,
+                role,
+                plantationId,
+                action,
+                OffsetDateTime.now()
+        );
     }
 
     private void publish(String routingKey, Object payload) {

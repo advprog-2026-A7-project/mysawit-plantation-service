@@ -24,6 +24,7 @@ public class PlantationMapper {
 
     public CreatePlantationRequest toCreateRequest(PlantationRequest request) {
         CreatePlantationRequest createRequest = new CreatePlantationRequest();
+        createRequest.setCode(request.getCode());
         createRequest.setName(request.getName());
         createRequest.setLocation(request.getLocation());
         createRequest.setArea(request.getArea());

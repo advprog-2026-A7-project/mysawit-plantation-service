@@ -36,6 +36,9 @@ public interface PlantationRepository extends JpaRepository<Plantation, Long> {
     Optional<Plantation> findByMandorId(String mandorId);
 
     @EntityGraph(attributePaths = {"coordinates", "supirIds"})
+    List<Plantation> findAllByMandorId(String mandorId);
+
+    @EntityGraph(attributePaths = {"coordinates", "supirIds"})
     List<Plantation> findBySupirIdsContaining(String supirId);
 
 }
